@@ -940,9 +940,23 @@ button.reset-btn:hover { background-color: #ff4d4d; border-color: #ff4d4d; }
     border-color: transparent transparent var(--accent) transparent;
 }
 
-/* --- Force BMC Widget to Left --- */
-#bmc-wbtn {
-    right: auto !important;
-    left: 18px !important; /* Matches your x-margin */
-    z-index: 9999 !important;
+/* --- Inline BMC Button --- */
+.bmc-btn-inline {
+    display: flex;
+    align-items: center;
+    pointer-events: auto; /* Enable clicking inside the footer */
+    transition: transform 0.2s ease, opacity 0.2s;
+    opacity: 0.9;
+}
+
+.bmc-btn-inline img {
+    height: 20px; /* Scaled to fit the footer height */
+    width: auto;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.bmc-btn-inline:hover {
+    transform: scale(1.05);
+    opacity: 1;
 }
