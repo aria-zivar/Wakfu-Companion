@@ -881,11 +881,8 @@ async function parseFile() {
 function processLine(line) {
   if (!line || line.trim() === "" || line.includes("[Game Log]")) return;
 
-  // IMPROVED DUPLICATION FIX:
-  // Only skip if the EXACT line (including timestamp) is a duplicate.
-  // This allows identical damage numbers at different times to count.
+  // Duplication Check (Full line match including timestamp)
   if (logLineCache.has(line)) return;
-
   logLineCache.add(line);
   if (logLineCache.size > MAX_CACHE_SIZE) {
     const firstItem = logLineCache.values().next().value;
@@ -900,21 +897,13 @@ function processLine(line) {
       line.includes("[Registro de Lutas]")
     ) {
       processFightLog(line);
-      return;
-    }
-
-    if (line.includes("You have picked up")) {
+    } else if (line.includes("You have picked up")) {
       processItemLog(line);
-      return;
-    }
-
-    // Chat parsing (HH:MM:SS)
-    if (line.match(/^\d{2}:\d{2}:\d{2}/)) {
+    } else if (line.match(/^\d{2}:\d{2}:\d{2}/)) {
       processChatLog(line);
-      return;
     }
   } catch (err) {
-    console.error("Error processing line:", err);
+    console.error(err);
   }
 }
 
@@ -951,12 +940,20 @@ function switchMeterMode(mode) {
 }
 
 function detectClass(playerName, spellName) {
-  // 1. Enemy Check: If name is in wakfuEnemies, ignore spell-based class detection.
+  // 1. EXIT if it's a known enemy family or specific mob
+  if (typeof wakfuEnemies !== "undefined") {
+    const isEnemy = wakfuEnemies.some((fam) =>
+      playerName.toLowerCase().includes(fam.toLowerCase())
+    );
+    if (isEnemy) return;
+  }
+
+  // 2. Class Check based on Spells
   if (spellToClassMap[spellName]) {
     const detected = spellToClassMap[spellName];
     if (playerClasses[playerName] !== detected) {
       playerClasses[playerName] = detected;
-      delete playerIconCache[playerName]; // Reset icon cache
+      delete playerIconCache[playerName];
     }
   }
 }
@@ -1017,12 +1014,10 @@ function processFightLog(line) {
   if (parts.length < 2) return;
   const content = parts[1].trim();
 
-  // 1. TURN END DETECTION (The "Leak" Fix)
-  // When a turn ends, we clear the current spell so damage from passives/poisons
-  // doesn't get attributed to the last player's active spell.
+  // 1. TURN END DETECTION
   if (
     content.includes("carried over to the next turn") ||
-    content.includes("passé au tour suivant")
+    content.includes("tour suivant")
   ) {
     currentSpell = "Passive / Indirect";
     return;
@@ -1039,18 +1034,7 @@ function processFightLog(line) {
     return;
   }
 
-  // 3. CONTEXT UPDATE (Update caster on stat changes)
-  const contextMatch = content.match(
-    /^(.*?): [+-]?\d+ (?:Stasis|Wakfu|WP|AP|MP|Range|PdV|PV|HP|Force of Will|Fuerza de Voluntad)/i
-  );
-  if (contextMatch) {
-    const potentialCaster = contextMatch[1].trim();
-    if (playerClasses[potentialCaster] || summonBindings[potentialCaster]) {
-      currentCaster = potentialCaster;
-    }
-  }
-
-  // 4. ACTION DETECTION
+  // 3. ACTION DETECTION (Damage, Healing, Armor)
   const actionMatch = content.match(
     new RegExp(`^(.*?): ([+-])?(${numPattern}) (${hpUnits}|${armorUnits})(.*)`)
   );
@@ -1069,6 +1053,7 @@ function processFightLog(line) {
     let detectedElement = null;
     let spellOverride = null;
 
+    // Determine Spell Source (Iterate backwards to find overrides like "Cog" or "Burning Armor")
     for (let i = details.length - 1; i >= 0; i--) {
       const d = details[i];
       const norm = normalizeElement(d);
@@ -1088,8 +1073,8 @@ function processFightLog(line) {
           "Exalted",
           "Calm",
         ];
-        if (!noise.includes(d) && !spellOverride) {
-          if (allKnownSpells.has(d)) spellOverride = d;
+        if (!noise.includes(d) && !spellOverride && allKnownSpells.has(d)) {
+          spellOverride = d;
         }
       }
     }
@@ -1097,32 +1082,38 @@ function processFightLog(line) {
     let finalCaster = currentCaster;
     let finalSpell = spellOverride || currentSpell;
 
-    // Ensure "Burning Armor" and other passives are attributed to the person taking the hit if reflect
+    // Handle Summons/Bindings logic
+    // If the caster is a bound summon, attribute to their master
+    if (summonBindings[finalCaster]) {
+      const master = summonBindings[finalCaster];
+      finalSpell = `${finalSpell} (${finalCaster})`;
+      finalCaster = master;
+    }
+
+    // Specific fix for reflective passives (Sacrier)
     if (
       spellOverride === "Burning Armor" ||
       spellOverride === "Armadura Ardiente"
     ) {
-      // Reflective damage: The target of the hit is the one who 'cast' the reflect
       finalCaster = target;
     }
 
-    if (summonBindings[finalCaster]) {
-      const master = summonBindings[finalCaster];
-      const summonSpell = `${finalSpell} (${finalCaster})`;
-      routeCombatData(
-        unit,
-        armorUnits,
-        sign,
-        master,
-        summonSpell,
+    // Routing to Data Sets
+    const isArmor = unit.match(new RegExp(armorUnits, "i"));
+    if (isArmor) {
+      updateCombatData(armorData, target, finalSpell, amount, null);
+    } else if (sign === "+") {
+      updateCombatData(
+        healData,
+        finalCaster,
+        finalSpell,
         amount,
         detectedElement
       );
     } else {
-      routeCombatData(
-        unit,
-        armorUnits,
-        sign,
+      // Damage uses the current caster detected in step 2
+      updateCombatData(
+        fightData,
         finalCaster,
         finalSpell,
         amount,
@@ -1193,24 +1184,25 @@ function collapseAll() {
 
 // Helper: Determine if a player object belongs to Allies or Enemies
 function isPlayerAlly(p) {
-  // 1. Manual Override
   if (manualOverrides[p.name]) return manualOverrides[p.name] === "ally";
 
-  // 2. Class Detection (If we've seen them cast a class spell)
+  // 1. Check Enemy DB first (Strict)
+  if (typeof wakfuEnemies !== "undefined") {
+    const isEnemy = wakfuEnemies.some((fam) =>
+      p.name.toLowerCase().includes(fam.toLowerCase())
+    );
+    if (isEnemy || p.name.includes("Punchy") || p.name.includes("Papas"))
+      return false;
+  }
+
+  // 2. Class Detection
   if (playerClasses[p.name]) return true;
 
-  // 3. Summon Detection
-  const isSummon =
-    typeof allySummons !== "undefined" && allySummons.includes(p.name);
-  if (isSummon) return true;
+  // 3. Summons
+  if (typeof allySummons !== "undefined" && allySummons.includes(p.name))
+    return true;
 
-  // 4. Enemy Database Check
-  const isEnemyDB =
-    typeof wakfuEnemies !== "undefined" &&
-    wakfuEnemies.some((fam) => p.name.includes(fam));
-  if (isEnemyDB) return false;
-
-  return false;
+  return false; // Default to Enemy for unknowns
 }
 
 // New Function: Expand or Collapse specific category
