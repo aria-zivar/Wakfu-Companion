@@ -46,6 +46,7 @@ let fightData = {}; // Damage
 let healData = {}; // Healing
 let armorData = {}; // Armor
 let playerClasses = {}; // Map player Name -> Class Icon Filename
+let summonBindings = {}; // Map: SummonName -> MasterName
 let playerIconCache = {}; // Cache for icon HTML strings to avoid re-calc
 let playerVariantState = {}; // Stores true/false for gender toggle
 let manualOverrides = {}; // Map player Name -> 'ally' | 'enemy'
@@ -880,24 +881,17 @@ async function parseFile() {
 function processLine(line) {
   if (!line || line.trim() === "" || line.includes("[Game Log]")) return;
 
-  // Extract the content without the timestamp to check for multibox duplicates
-  // This allows "12:00:00,101 - [Guild] Hi" and "12:00:00,105 - [Guild] Hi" to be treated as duplicates
-  const timestampSeparator = " - ";
-  const bodyIndex = line.indexOf(timestampSeparator);
-  const contentBody =
-    bodyIndex !== -1
-      ? line.substring(bodyIndex + timestampSeparator.length)
-      : line;
+  // IMPROVED DUPLICATION FIX:
+  // Only skip if the EXACT line (including timestamp) is a duplicate.
+  // This allows identical damage numbers at different times to count.
+  if (logLineCache.has(line)) return;
 
-  if (logLineCache.has(contentBody)) return;
-
-  logLineCache.add(contentBody);
+  logLineCache.add(line);
   if (logLineCache.size > MAX_CACHE_SIZE) {
     const firstItem = logLineCache.values().next().value;
     logLineCache.delete(firstItem);
   }
 
-  // Wrap in try-catch so a combat error doesn't kill the Chat
   try {
     if (
       line.includes("[Fight Log]") ||
@@ -1023,7 +1017,18 @@ function processFightLog(line) {
   if (parts.length < 2) return;
   const content = parts[1].trim();
 
-  // 1. Detect Spell Casting
+  // 1. TURN END DETECTION (The "Leak" Fix)
+  // When a turn ends, we clear the current spell so damage from passives/poisons
+  // doesn't get attributed to the last player's active spell.
+  if (
+    content.includes("carried over to the next turn") ||
+    content.includes("passé au tour suivant")
+  ) {
+    currentSpell = "Passive / Indirect";
+    return;
+  }
+
+  // 2. CAST DETECTION
   const castMatch = content.match(
     /^(.*?) (?:casts|lance(?: le sort)?|lanza(?: el hechizo)?|lança(?: o feitiço)?) (.*?)(?:\.|\s\(|$)/
   );
@@ -1034,11 +1039,21 @@ function processFightLog(line) {
     return;
   }
 
-  // 2. Detect Actions (Damage, Healing, Armor)
+  // 3. CONTEXT UPDATE (Update caster on stat changes)
+  const contextMatch = content.match(
+    /^(.*?): [+-]?\d+ (?:Stasis|Wakfu|WP|AP|MP|Range|PdV|PV|HP|Force of Will|Fuerza de Voluntad)/i
+  );
+  if (contextMatch) {
+    const potentialCaster = contextMatch[1].trim();
+    if (playerClasses[potentialCaster] || summonBindings[potentialCaster]) {
+      currentCaster = potentialCaster;
+    }
+  }
+
+  // 4. ACTION DETECTION
   const actionMatch = content.match(
     new RegExp(`^(.*?): ([+-])?(${numPattern}) (${hpUnits}|${armorUnits})(.*)`)
   );
-
   if (actionMatch) {
     const target = actionMatch[1].trim();
     const sign = actionMatch[2] || "";
@@ -1048,50 +1063,94 @@ function processFightLog(line) {
 
     if (isNaN(amount) || amount <= 0) return;
 
-    // Parse parentheses for Elements or Spell Overrides (e.g. Rogue Bombs)
     const parentheticals = suffix.match(/\(([^)]+)\)/g) || [];
     const details = parentheticals.map((p) => p.slice(1, -1));
 
-    let element = null;
+    let detectedElement = null;
     let spellOverride = null;
 
-    details.forEach((d) => {
+    for (let i = details.length - 1; i >= 0; i--) {
+      const d = details[i];
       const norm = normalizeElement(d);
-      if (norm) element = norm;
-      else if (typeof allKnownSpells !== "undefined" && allKnownSpells.has(d))
-        spellOverride = d;
-    });
+      if (norm) {
+        if (!detectedElement) detectedElement = norm;
+      } else {
+        const noise = [
+          "Block!",
+          "Critical",
+          "Critical Hit",
+          "Wrath",
+          "Countered",
+          "Double",
+          "The Art of Taming",
+          "Neutrality",
+          "Raw Power",
+          "Exalted",
+          "Calm",
+        ];
+        if (!noise.includes(d) && !spellOverride) {
+          if (allKnownSpells.has(d)) spellOverride = d;
+        }
+      }
+    }
 
-    const finalSpell = spellOverride || currentSpell;
+    let finalCaster = currentCaster;
+    let finalSpell = spellOverride || currentSpell;
 
-    // Routing Logic
-    if (unit.match(new RegExp(armorUnits, "i"))) {
-      // ARMOR GENERATION
-      // Usually attributes to the target getting the armor
-      updateCombatData(armorData, target, finalSpell, amount, null);
-    } else if (sign === "+") {
-      // HEALING
-      updateCombatData(
-        healData,
-        currentCaster,
-        finalSpell,
+    // Ensure "Burning Armor" and other passives are attributed to the person taking the hit if reflect
+    if (
+      spellOverride === "Burning Armor" ||
+      spellOverride === "Armadura Ardiente"
+    ) {
+      // Reflective damage: The target of the hit is the one who 'cast' the reflect
+      finalCaster = target;
+    }
+
+    if (summonBindings[finalCaster]) {
+      const master = summonBindings[finalCaster];
+      const summonSpell = `${finalSpell} (${finalCaster})`;
+      routeCombatData(
+        unit,
+        armorUnits,
+        sign,
+        master,
+        summonSpell,
         amount,
-        element || null
+        detectedElement
       );
-    } else if (sign === "-") {
-      // DAMAGE
-      updateCombatData(
-        fightData,
-        currentCaster,
+    } else {
+      routeCombatData(
+        unit,
+        armorUnits,
+        sign,
+        finalCaster,
         finalSpell,
         amount,
-        element || null
+        detectedElement
       );
     }
 
     lastCombatTime = Date.now();
     updateWatchdogUI();
-    return;
+  }
+}
+
+// Helper to keep code clean
+function routeCombatData(
+  unit,
+  armorUnits,
+  sign,
+  caster,
+  spell,
+  amount,
+  element
+) {
+  if (unit.match(new RegExp(armorUnits, "i"))) {
+    updateCombatData(armorData, caster, spell, amount, null);
+  } else if (sign === "+") {
+    updateCombatData(healData, caster, spell, amount, element);
+  } else {
+    updateCombatData(fightData, caster, spell, amount, element);
   }
 }
 
@@ -1189,6 +1248,7 @@ function performReset() {
   healData = {};
   armorData = {};
   playerClasses = {};
+  summonBindings = {};
   playerIconCache = {};
   playerVariantState = {}; // Reset gender toggles
   manualOverrides = {};
@@ -1301,6 +1361,30 @@ function renderMeter() {
       // -------------------------
 
       const rowBlock = document.createElement("div");
+      rowBlock.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        rowBlock.classList.add("drag-target"); // Add a CSS class for visual feedback
+      });
+
+      rowBlock.addEventListener("dragleave", () => {
+        rowBlock.classList.remove("drag-target");
+      });
+
+      rowBlock.addEventListener("drop", (e) => {
+        e.preventDefault();
+        rowBlock.classList.remove("drag-target");
+        const draggedName = e.dataTransfer.getData("text/plain");
+        const targetMasterName = p.name;
+
+        if (draggedName && draggedName !== targetMasterName) {
+          // Bind the dragged entity to the target
+          summonBindings[draggedName] = targetMasterName;
+
+          // Merge existing data immediately
+          mergeSummonData(draggedName, targetMasterName);
+          renderMeter();
+        }
+      });
       rowBlock.className = `player-block ${isExpanded ? "expanded" : ""}`;
       rowBlock.setAttribute("draggable", "true");
 
@@ -1394,6 +1478,34 @@ function renderMeter() {
 
   renderList(allies, alliesContainer, totalAllyVal);
   renderList(enemies, enemiesContainer, totalEnemyVal);
+}
+
+function mergeSummonData(summon, master) {
+  [fightData, healData, armorData].forEach((dataSet) => {
+    if (dataSet[summon]) {
+      if (!dataSet[master])
+        dataSet[master] = { name: master, total: 0, spells: {} };
+
+      // Move total
+      dataSet[master].total += dataSet[summon].total;
+
+      // Move spells and prefix them
+      Object.entries(dataSet[summon].spells).forEach(([key, s]) => {
+        const newKey = `${s.realName} (${summon})|${s.element || "neutral"}`;
+        if (!dataSet[master].spells[newKey]) {
+          dataSet[master].spells[newKey] = {
+            val: 0,
+            element: s.element,
+            realName: `${s.realName} (${summon})`,
+          };
+        }
+        dataSet[master].spells[newKey].val += s.val;
+      });
+
+      // Delete the summon from top level
+      delete dataSet[summon];
+    }
+  });
 }
 
 // ==========================================
