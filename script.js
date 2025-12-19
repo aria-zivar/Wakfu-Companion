@@ -8,6 +8,10 @@ let parseIntervalId = null,
   watchdogIntervalId = null;
 let pipWindow = null;
 let trackerViewMode = "grid"; // Default to grid
+let combatLineCache = new Set();
+let logLineCache = new Set();
+let allKnownSpells = new Set();
+const MAX_CACHE_SIZE = 200;
 
 // Global function to handle the toggle and save state
 window.toggleIconVariant = function (playerName, imgEl) {
@@ -38,7 +42,6 @@ function getUI(id) {
 }
 
 // Combat State
-let allKnownSpells = new Set();
 let fightData = {}; // Damage
 let healData = {}; // Healing
 let armorData = {}; // Armor
@@ -105,7 +108,7 @@ let activeTooltip = null;
 function generateSpellMap() {
   if (typeof classSpells === "undefined") return;
   spellToClassMap = {};
-  allKnownSpells = new Set(); // Reset
+  allKnownSpells = new Set(); // Clear and rebuild
 
   for (const [className, langData] of Object.entries(classSpells)) {
     if (typeof langData === "object" && !Array.isArray(langData)) {
@@ -113,7 +116,7 @@ function generateSpellMap() {
         if (Array.isArray(spells)) {
           spells.forEach((spell) => {
             spellToClassMap[spell] = className;
-            allKnownSpells.add(spell); // Add to our validation set
+            allKnownSpells.add(spell);
           });
         }
       }
@@ -124,6 +127,9 @@ function generateSpellMap() {
       });
     }
   }
+  console.log(
+    `Spell database initialized: ${allKnownSpells.size} spells loaded.`
+  );
 }
 
 function showTooltip(text, e) {
@@ -872,22 +878,50 @@ async function parseFile() {
 }
 
 function processLine(line) {
-  if (!line) return;
-  if (line.includes("You have picked up")) processItemLog(line);
-  if (line.includes("[Game Log]")) return;
+  if (!line || line.trim() === "" || line.includes("[Game Log]")) return;
 
-  // MULTI-LANGUAGE COMBAT HEADERS
-  if (
-    line.includes("[Fight Log]") ||
-    line.includes("[Information (combat)]") ||
-    line.includes("[Información (combate)]") ||
-    line.includes("[Registro de Lutas]")
-  ) {
-    processFightLog(line);
-    return;
+  // Extract the content without the timestamp to check for multibox duplicates
+  // This allows "12:00:00,101 - [Guild] Hi" and "12:00:00,105 - [Guild] Hi" to be treated as duplicates
+  const timestampSeparator = " - ";
+  const bodyIndex = line.indexOf(timestampSeparator);
+  const contentBody =
+    bodyIndex !== -1
+      ? line.substring(bodyIndex + timestampSeparator.length)
+      : line;
+
+  if (logLineCache.has(contentBody)) return;
+
+  logLineCache.add(contentBody);
+  if (logLineCache.size > MAX_CACHE_SIZE) {
+    const firstItem = logLineCache.values().next().value;
+    logLineCache.delete(firstItem);
   }
 
-  if (line.match(/^\d{2}:\d{2}:\d{2}/)) processChatLog(line);
+  // Wrap in try-catch so a combat error doesn't kill the Chat
+  try {
+    if (
+      line.includes("[Fight Log]") ||
+      line.includes("[Information (combat)]") ||
+      line.includes("[Información (combate)]") ||
+      line.includes("[Registro de Lutas]")
+    ) {
+      processFightLog(line);
+      return;
+    }
+
+    if (line.includes("You have picked up")) {
+      processItemLog(line);
+      return;
+    }
+
+    // Chat parsing (HH:MM:SS)
+    if (line.match(/^\d{2}:\d{2}:\d{2}/)) {
+      processChatLog(line);
+      return;
+    }
+  } catch (err) {
+    console.error("Error processing line:", err);
+  }
 }
 
 // ==========================================
@@ -924,24 +958,33 @@ function switchMeterMode(mode) {
 
 function detectClass(playerName, spellName) {
   // 1. Enemy Check: If name is in wakfuEnemies, ignore spell-based class detection.
-  if (
-    typeof wakfuEnemies !== "undefined" &&
-    wakfuEnemies.some((e) => playerName.includes(e))
-  ) {
-    return;
-  }
-
-  // 2. Class Check based on Spells
   if (spellToClassMap[spellName]) {
     const detected = spellToClassMap[spellName];
-
-    // Update if not set or different
     if (playerClasses[playerName] !== detected) {
       playerClasses[playerName] = detected;
-      // Clear cache for this player so icon updates
-      delete playerIconCache[playerName];
+      delete playerIconCache[playerName]; // Reset icon cache
     }
   }
+}
+
+function isPlayerAlly(p) {
+  if (manualOverrides[p.name]) return manualOverrides[p.name] === "ally";
+
+  // If they have a detected class (e.g. eliotrope), they are an Ally
+  if (playerClasses[p.name]) return true;
+
+  // Check summon list
+  if (typeof allySummons !== "undefined" && allySummons.includes(p.name))
+    return true;
+
+  // Known enemy logic
+  const isEnemyDB =
+    typeof wakfuEnemies !== "undefined" &&
+    wakfuEnemies.some((fam) => p.name.includes(fam));
+  if (isEnemyDB) return false;
+
+  // Default to Enemy for safety, but class detection usually fixes this on the first spell cast
+  return false;
 }
 
 // Helper at the top of your script or inside processFightLog
@@ -1092,21 +1135,23 @@ function collapseAll() {
 // Helper: Determine if a player object belongs to Allies or Enemies
 function isPlayerAlly(p) {
   // 1. Manual Override
-  if (manualOverrides[p.name]) {
-    return manualOverrides[p.name] === "ally";
-  }
-  // 2. Logic Detection
-  const hasClass = !!playerClasses[p.name];
+  if (manualOverrides[p.name]) return manualOverrides[p.name] === "ally";
+
+  // 2. Class Detection (If we've seen them cast a class spell)
+  if (playerClasses[p.name]) return true;
+
+  // 3. Summon Detection
   const isSummon =
     typeof allySummons !== "undefined" && allySummons.includes(p.name);
+  if (isSummon) return true;
+
+  // 4. Enemy Database Check
   const isEnemyDB =
     typeof wakfuEnemies !== "undefined" &&
     wakfuEnemies.some((fam) => p.name.includes(fam));
-
-  if (hasClass || isSummon) return true;
   if (isEnemyDB) return false;
 
-  return false; // Default to Enemy for unknowns
+  return false;
 }
 
 // New Function: Expand or Collapse specific category
@@ -1391,7 +1436,11 @@ function formatLocalTime(rawTimeStr) {
 function processChatLog(line) {
   const parts = line.split(" - ");
   if (parts.length < 2) return;
-  const localTime = formatLocalTime(parts[0].split(",")[0]);
+
+  // parts[0] is the timestamp "16:49:04,123"
+  const rawTime = parts[0].split(",")[0];
+  const localTime = formatLocalTime(rawTime);
+
   const rest = parts.slice(1).join(" - ");
 
   let channel = "General";
