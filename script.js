@@ -38,6 +38,7 @@ function getUI(id) {
 }
 
 // Combat State
+let allKnownSpells = new Set();
 let fightData = {}; // Damage
 let healData = {}; // Healing
 let armorData = {}; // Armor
@@ -100,6 +101,30 @@ const trackerList = document.getElementById("tracker-list");
 let dragSrcIndex = null;
 
 let activeTooltip = null;
+
+function generateSpellMap() {
+  if (typeof classSpells === "undefined") return;
+  spellToClassMap = {};
+  allKnownSpells = new Set(); // Reset
+
+  for (const [className, langData] of Object.entries(classSpells)) {
+    if (typeof langData === "object" && !Array.isArray(langData)) {
+      for (const spells of Object.values(langData)) {
+        if (Array.isArray(spells)) {
+          spells.forEach((spell) => {
+            spellToClassMap[spell] = className;
+            allKnownSpells.add(spell); // Add to our validation set
+          });
+        }
+      }
+    } else if (Array.isArray(langData)) {
+      langData.forEach((spell) => {
+        spellToClassMap[spell] = className;
+        allKnownSpells.add(spell);
+      });
+    }
+  }
+}
 
 function showTooltip(text, e) {
   // Determine which document we are in (Main or PiP)
@@ -947,7 +972,7 @@ function normalizeElement(el) {
 function processFightLog(line) {
   const hpUnits = "HP|PdV|PV";
   const armorUnits = "Armor|Armadura|Armure";
-  const numPattern = "[\\d,.\\s]+"; // Added dot (.) to support 7.005
+  const numPattern = "[\\d,.\\s]+";
 
   const parts = line.split(
     /\[(?:Fight Log|Information \(combat\)|Información \(combate\)|Registro de Lutas)\] /
@@ -955,8 +980,7 @@ function processFightLog(line) {
   if (parts.length < 2) return;
   const content = parts[1].trim();
 
-  // 1. CAST DETECTION
-  // Handles: casts, lance (le sort), lanza (el hechizo), lança (o feitiço)
+  // 1. Detect Spell Casting
   const castMatch = content.match(
     /^(.*?) (?:casts|lance(?: le sort)?|lanza(?: el hechizo)?|lança(?: o feitiço)?) (.*?)(?:\.|\s\(|$)/
   );
@@ -967,78 +991,63 @@ function processFightLog(line) {
     return;
   }
 
-  // 2. DAMAGE PARSING (With dot support and Element Normalization)
-  const dmgMatch = content.match(
-    new RegExp(
-      `^(.*?): -(${numPattern}) (?:${hpUnits}).*? \\((.*?)\\)(?: \\((.*?)\\))?`
-    )
+  // 2. Detect Actions (Damage, Healing, Armor)
+  const actionMatch = content.match(
+    new RegExp(`^(.*?): ([+-])?(${numPattern}) (${hpUnits}|${armorUnits})(.*)`)
   );
-  if (dmgMatch) {
-    let amount = parseInt(dmgMatch[2].replace(/[,.\s]/g, ""), 10);
-    let element = normalizeElement(dmgMatch[3]);
-    let spellOverride = dmgMatch[4];
 
-    if (!isNaN(amount)) {
-      const finalSpell = spellOverride || currentSpell;
-      updateCombatData(fightData, currentCaster, finalSpell, amount, element);
-      lastCombatTime = Date.now();
-      updateWatchdogUI();
+  if (actionMatch) {
+    const target = actionMatch[1].trim();
+    const sign = actionMatch[2] || "";
+    const amount = parseInt(actionMatch[3].replace(/[,.\s]/g, ""), 10);
+    const unit = actionMatch[4];
+    const suffix = actionMatch[5].trim();
+
+    if (isNaN(amount) || amount <= 0) return;
+
+    // Parse parentheses for Elements or Spell Overrides (e.g. Rogue Bombs)
+    const parentheticals = suffix.match(/\(([^)]+)\)/g) || [];
+    const details = parentheticals.map((p) => p.slice(1, -1));
+
+    let element = null;
+    let spellOverride = null;
+
+    details.forEach((d) => {
+      const norm = normalizeElement(d);
+      if (norm) element = norm;
+      else if (typeof allKnownSpells !== "undefined" && allKnownSpells.has(d))
+        spellOverride = d;
+    });
+
+    const finalSpell = spellOverride || currentSpell;
+
+    // Routing Logic
+    if (unit.match(new RegExp(armorUnits, "i"))) {
+      // ARMOR GENERATION
+      // Usually attributes to the target getting the armor
+      updateCombatData(armorData, target, finalSpell, amount, null);
+    } else if (sign === "+") {
+      // HEALING
+      updateCombatData(
+        healData,
+        currentCaster,
+        finalSpell,
+        amount,
+        element || null
+      );
+    } else if (sign === "-") {
+      // DAMAGE
+      updateCombatData(
+        fightData,
+        currentCaster,
+        finalSpell,
+        amount,
+        element || null
+      );
     }
-    return;
-  }
 
-  // 3. ARMOR PARSING
-  const armorMatch = content.match(
-    new RegExp(`^(.*?): (${numPattern}) (?:${armorUnits})(?: \\((.*?)\\))?`)
-  );
-  if (armorMatch) {
-    let player = armorMatch[1];
-    let amount = parseInt(armorMatch[2].replace(/[,.\s]/g, ""), 10);
-    let source = armorMatch[3] || "Unknown Source";
-
-    if (!isNaN(amount) && amount > 0) {
-      updateCombatData(armorData, player, source, amount, null);
-      lastCombatTime = Date.now();
-      updateWatchdogUI();
-    }
-    return;
-  }
-
-  // 4. HEALING PARSING
-  const healMatch = content.match(
-    new RegExp(`^(.*?): \\+(${numPattern}) (?:${hpUnits})(.*)$`)
-  );
-  if (healMatch) {
-    let player = healMatch[1];
-    let amount = parseInt(healMatch[2].replace(/[,.\s]/g, ""), 10);
-    let remainder = healMatch[3].trim();
-
-    if (!isNaN(amount) && amount > 0) {
-      let element = null;
-      let actualSpell = currentSpell;
-      const detailsMatch = remainder.match(/^\((.+?)\)(?: \((.+?)\))?$/);
-      if (detailsMatch) {
-        element = normalizeElement(detailsMatch[1]);
-        if (detailsMatch[2]) actualSpell = detailsMatch[2];
-      }
-      updateCombatData(healData, currentCaster, actualSpell, amount, element);
-      lastCombatTime = Date.now();
-      updateWatchdogUI();
-    }
-    return;
-  }
-
-  // 5. SIMPLE DAMAGE FALLBACK
-  const simpleDmgMatch = content.match(
-    new RegExp(`^(.*?): -(${numPattern}) (?:${hpUnits})`)
-  );
-  if (simpleDmgMatch) {
-    let amount = parseInt(simpleDmgMatch[2].replace(/[,.\s]/g, ""), 10);
-    if (!isNaN(amount)) {
-      updateCombatData(fightData, currentCaster, currentSpell, amount, null);
-      lastCombatTime = Date.now();
-      updateWatchdogUI();
-    }
+    lastCombatTime = Date.now();
+    updateWatchdogUI();
     return;
   }
 }
