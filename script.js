@@ -425,31 +425,32 @@ async function checkPreviousFile() {
 // ==========================================
 function initTrackerDropdowns() {
   if (typeof professionItems === "undefined") return;
-  for (const prof in professionItems) {
-    const opt = document.createElement("option");
-    opt.value = prof;
-    opt.textContent = prof;
-    profSelect.appendChild(opt);
-  }
-  loadTrackerState();
-}
 
-function updateItemDropdown() {
-  const prof = profSelect.value;
-
-  // Clear input and datalist
+  // Clear search input and datalist
   itemInput.value = "";
   itemDatalist.innerHTML = "";
 
-  if (professionItems[prof]) {
+  // 1. Populate gathering items from database.js
+  for (const prof in professionItems) {
     professionItems[prof].forEach((itemData) => {
       const opt = document.createElement("option");
-      // Datalist uses 'value' for the text displayed in the dropdown
       opt.value = itemData.name;
       itemDatalist.appendChild(opt);
     });
   }
+
+  // 2. Populate monster items from items.js (now searched as 'ALL')
+  if (typeof monsterResources !== "undefined") {
+    monsterResources.forEach((itemData) => {
+      const opt = document.createElement("option");
+      opt.value = itemData.name;
+      itemDatalist.appendChild(opt);
+    });
+  }
+
+  loadTrackerState();
 }
+
 // --- View Toggle ---
 function toggleTrackerView() {
   trackerViewMode = trackerViewMode === "grid" ? "list" : "grid";
@@ -481,63 +482,63 @@ function loadTrackerState() {
 
 // --- Actions ---
 function addTrackedItem() {
-  const currentProf = profSelect.value;
   const itemName = itemInput.value.trim();
+  if (!itemName) return alert("Search for an item first.");
 
-  if (!currentProf) {
-    alert("Please select a profession first.");
-    return;
-  }
-  if (!itemName) {
-    alert("Please select or search for an item.");
-    return;
-  }
+  let foundItem = null;
+  let category = null;
 
-  // Validate the item actually exists in the selected profession
-  // (Since inputs allow typing anything)
-  const itemData = professionItems[currentProf].find(
-    (i) => i.name.toLowerCase() === itemName.toLowerCase()
-  );
-
-  if (!itemData) {
-    alert(
-      `"${itemName}" is not a valid item for ${currentProf}. Please select from the list.`
+  // 1. Search in Gathering Professions first
+  for (const prof in professionItems) {
+    const item = professionItems[prof].find(
+      (i) => i.name.toLowerCase() === itemName.toLowerCase()
     );
-    return;
+    if (item) {
+      foundItem = item;
+      category = prof;
+      break;
+    }
   }
 
-  // Check for duplicates
-  if (trackedItems.find((t) => t.name === itemData.name)) {
-    alert("Already tracking " + itemData.name);
-    // Clear input for convenience
+  // 2. Search in Monster Resources if not found in gathering
+  if (!foundItem && typeof monsterResources !== "undefined") {
+    const item = monsterResources.find(
+      (i) => i.name.toLowerCase() === itemName.toLowerCase()
+    );
+    if (item) {
+      foundItem = item;
+      category = "ALL";
+    }
+  }
+
+  if (!foundItem) return alert(`"${itemName}" was not found in any database.`);
+
+  // Dupe check
+  if (
+    trackedItems.find(
+      (t) => t.name === foundItem.name && t.rarity === foundItem.rarity
+    )
+  ) {
+    alert("Already tracking this item.");
     itemInput.value = "";
     return;
   }
 
-  // Prompt for Target
-  let target = prompt("Target quantity?", "500");
-  if (target === null) return; // User cancelled
-  target = parseInt(target) || 500;
+  let target = prompt("Target quantity?", "100");
+  if (target === null) return;
 
   trackedItems.push({
     id: Date.now(),
-    name: itemData.name,
+    name: foundItem.name,
     current: 0,
-    target: target,
-    level: itemData.level,
-    rarity: itemData.rarity,
-    profession: currentProf,
+    target: parseInt(target) || 100,
+    level: foundItem.level,
+    rarity: foundItem.rarity,
+    profession: category, // Stores job name or 'ALL'
+    imgId: foundItem.imgId || null,
   });
 
-  // Clear input after adding
   itemInput.value = "";
-
-  saveTrackerState();
-  renderTracker();
-}
-
-function removeTrackedItem(id) {
-  trackedItems = trackedItems.filter((t) => t.id !== id);
   saveTrackerState();
   renderTracker();
 }
@@ -551,15 +552,26 @@ function updateItemValue(id, key, val) {
   }
 }
 
+function removeTrackedItem(id) {
+  // Filter the array to exclude the item with the matching ID
+  trackedItems = trackedItems.filter((t) => t.id !== id);
+
+  // Save the new state to LocalStorage
+  saveTrackerState();
+
+  // Refresh the UI
+  renderTracker();
+}
+
 function renderTracker() {
   const listEl = getUI("tracker-list");
   if (!listEl) return;
 
-  // Clear the current list
+  // Clear current UI
   listEl.innerHTML = "";
 
   if (trackedItems.length === 0) {
-    listEl.innerHTML = '<div class="empty-state">Add items to track</div>';
+    listEl.innerHTML = '<div class="empty-state">Add items to track...</div>';
     return;
   }
 
@@ -569,13 +581,24 @@ function renderTracker() {
   trackedItems.forEach((item, index) => {
     const isComplete = item.current >= item.target && item.target > 0;
     const progress = Math.min((item.current / (item.target || 1)) * 100, 100);
-    const safeItemName = item.name.replace(/\s+/g, "_");
 
-    // Profession Icon Setup
-    const profName = (item.profession || "miner").toLowerCase();
-    const profIconPath = `img/resources/${profName}.png`;
+    // 1. TOP-LEFT ICON: Use 'monster_resource.png' for "ALL", otherwise use profession name
+    const profFilename =
+      item.profession === "ALL"
+        ? "monster_resource"
+        : item.profession.toLowerCase().replace(/\s+/g, "_");
+    const profIconPath = `img/resources/${profFilename}.png`;
 
-    // Tooltip Text Construction
+    // 2. MAIN ITEM ICON: Use imgId for "ALL", otherwise use Item Name
+    let itemIconPath;
+    if (item.profession === "ALL" && item.imgId) {
+      itemIconPath = `img/items/${item.imgId}.png`;
+    } else {
+      const safeItemName = item.name.replace(/\s+/g, "_");
+      itemIconPath = `img/resources/${safeItemName}.png`;
+    }
+
+    const rarityName = (item.rarity || "common").toLowerCase();
     const tooltipText = `${
       item.name
     }\nProgress: ${item.current.toLocaleString()} / ${item.target.toLocaleString()} (${Math.floor(
@@ -591,32 +614,26 @@ function renderTracker() {
       slot.setAttribute("draggable", "true");
       slot.dataset.index = index;
 
-      // Interaction Events
+      // Tooltip and Click events
       slot.onmouseenter = (e) => showTooltip(tooltipText, e);
       slot.onmousemove = (e) => updateTooltipPosition(e);
       slot.onmouseleave = () => hideTooltip();
       slot.onclick = () => openTrackerModal(item.id);
 
-      // Drag & Drop Events
+      // Reordering events
       slot.addEventListener("dragstart", handleTrackDragStart);
-      slot.addEventListener("dragenter", handleTrackDragEnter);
       slot.addEventListener("dragover", handleTrackDragOver);
-      slot.addEventListener("dragleave", handleTrackDragLeave);
       slot.addEventListener("drop", handleTrackDrop);
-      slot.addEventListener("dragend", handleTrackDragEnd);
 
       slot.innerHTML = `
-                <!-- Profession Icon (Top-Left) -->
+                <!-- Corner Profession Icon -->
                 <img src="${profIconPath}" class="slot-prof-icon" onerror="this.style.display='none'">
                 
-                <!-- Resource Icon -->
-                <img src="img/resources/${safeItemName}.png" class="slot-icon" 
-                     onerror="this.src='img/resources/${safeItemName}.webp'; this.onerror=function(){this.style.display='none'};">
+                <!-- Main Item Icon -->
+                <img src="${itemIconPath}" class="slot-icon" 
+                     onerror="this.src='img/resources/not_found.png';">
                 
-                <!-- Current Count Overlay -->
                 <div class="slot-count">${item.current.toLocaleString()}</div>
-                
-                <!-- Bottom Progress Bar -->
                 <div class="slot-progress-container">
                     <div class="slot-progress-bar" style="width: ${progress}%"></div>
                 </div>
@@ -631,23 +648,18 @@ function renderTracker() {
       row.setAttribute("draggable", "true");
       row.dataset.index = index;
 
-      // Drag & Drop Events
+      // Reordering events
       row.addEventListener("dragstart", handleTrackDragStart);
-      row.addEventListener("dragenter", handleTrackDragEnter);
       row.addEventListener("dragover", handleTrackDragOver);
-      row.addEventListener("dragleave", handleTrackDragLeave);
       row.addEventListener("drop", handleTrackDrop);
-      row.addEventListener("dragend", handleTrackDragEnd);
-
-      const rarityName = (item.rarity || "common").toLowerCase();
 
       row.innerHTML = `
-                <!-- Left Info Section (Clickable to Edit) -->
+                <!-- Left Info Section -->
                 <div class="t-left-group" style="cursor: pointer;" onclick="openTrackerModal(${
                   item.id
                 })">
-                    <img src="img/resources/${safeItemName}.png" class="resource-icon" 
-                         onerror="this.src='img/resources/${safeItemName}.webp';">
+                    <img src="${itemIconPath}" class="resource-icon" 
+                         onerror="this.src='img/resources/not_found.png';">
                     <div class="t-info-text">
                         <img src="img/quality/${rarityName}.png" class="rarity-icon" onerror="this.style.display='none'">
                         <span class="t-level-badge">Lvl. ${item.level}</span>
@@ -655,7 +667,7 @@ function renderTracker() {
                     </div>
                 </div>
 
-                <!-- Middle Input Section -->
+                <!-- Middle Inputs -->
                 <div class="t-input-container">
                     <input type="number" class="t-input" value="${
                       item.current
@@ -670,11 +682,9 @@ function renderTracker() {
                            }, 'target', this.value)">
                 </div>
 
-                <!-- Right Status Section -->
+                <!-- Right Job Icon & Delete -->
                 <div class="t-right-group">
-                    <!-- Colorful Profession Icon -->
                     <img src="${profIconPath}" class="t-job-icon" onerror="this.style.display='none'">
-                    
                     <div class="t-status-col">
                         <button class="t-delete-btn" onclick="removeTrackedItem(${
                           item.id
@@ -686,7 +696,7 @@ function renderTracker() {
                 </div>
             `;
 
-      // Tooltip for the name/icon area in list view
+      // Tooltip for the info area
       const infoArea = row.querySelector(".t-left-group");
       infoArea.onmouseenter = (e) => showTooltip(tooltipText, e);
       infoArea.onmousemove = (e) => updateTooltipPosition(e);
@@ -2290,27 +2300,42 @@ function openTrackerModal(itemId) {
   if (!item) return;
 
   const modal = document.getElementById("tracker-modal");
-  const safeName = item.name.replace(/\s+/g, "_");
 
+  // FIXED: Determine correct icon path for the modal
+  // Uses imgId if category is 'ALL', otherwise uses Item Name
+  const itemIconPath =
+    item.profession === "ALL" && item.imgId
+      ? `img/items/${item.imgId}.png`
+      : `img/resources/${item.name.replace(/\s+/g, "_")}.png`;
+
+  // Update Modal UI elements
   document.getElementById("modal-item-name").textContent = item.name;
-  document.getElementById(
-    "modal-item-icon"
-  ).src = `img/resources/${safeName}.png`;
+  const modalIcon = document.getElementById("modal-item-icon");
+  modalIcon.src = itemIconPath;
+
+  // Fallback if image is missing
+  modalIcon.onerror = function () {
+    this.src = "img/resources/not_found.png";
+    this.onerror = null;
+  };
+
   document.getElementById("modal-input-current").value = item.current;
   document.getElementById("modal-input-target").value = item.target;
 
-  // Set up save button
+  // Set up SAVE button action
   document.getElementById("modal-save-btn").onclick = () => {
     const newCur =
       parseInt(document.getElementById("modal-input-current").value) || 0;
     const newTar =
       parseInt(document.getElementById("modal-input-target").value) || 0;
+
     updateItemValue(item.id, "current", newCur);
     updateItemValue(item.id, "target", newTar);
+
     closeTrackerModal();
   };
 
-  // Set up delete button
+  // Set up DELETE button action
   document.getElementById("modal-delete-btn").onclick = () => {
     if (confirm(`Stop tracking ${item.name}?`)) {
       removeTrackedItem(item.id);
@@ -2318,6 +2343,7 @@ function openTrackerModal(itemId) {
     }
   };
 
+  // Display the modal
   modal.style.display = "flex";
 }
 

@@ -137,14 +137,8 @@
                     <button class="pip-btn" onclick="togglePiP('tracker-list', 'Item Tracker')" title="Picture in Picture">⧉</button>
                 </div>
                 <div class="tracker-controls">
-                    <select id="prof-select" class="tracker-select" onchange="updateItemDropdown()">
-                        <option value="" disabled selected>Profession...</option>
-                    </select>
-                    
-                    <!-- Input + Datalist for Search -->
                     <input type="text" id="item-input" list="item-datalist" class="tracker-select" placeholder="Search item..." autocomplete="off">
                     <datalist id="item-datalist"></datalist>
-
                     <button class="add-track-btn" onclick="addTrackedItem()">Add</button>
                 </div>
                 <div id="tracker-list">
@@ -406,6 +400,7 @@
     <!-- LOAD DATABASE FIRST -->
     <script src="database.js"></script>
     <script src="forecast_data.js"></script>
+    <script src="items.js"></script>
     <script src="script.js"></script>
 
     <!-- BUY ME A COFFEE WIDGET -->
