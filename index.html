@@ -129,6 +129,10 @@
                 <div class="panel-header">
                     <img src="./img/headers/item_tracker.png" class="header-label-icon" onerror="this.style.display='none'">
                     <span class="header-label">Item Tracker</span>
+
+                    <!-- View Toggle Button -->
+                    <button class="pip-btn" id="tracker-view-toggle" onclick="toggleTrackerView()" title="Toggle Grid/List View" style="margin-left: auto;">☰</button>
+
                     <!-- PiP Button -->
                     <button class="pip-btn" onclick="togglePiP('tracker-list', 'Item Tracker')" title="Picture in Picture">⧉</button>
                 </div>
@@ -149,6 +153,8 @@
                 
                 <div id="tracker-notifications"></div>
             </div>
+
+            
 
             <!-- 3. Chat Translator -->
             <div class="tool-panel">
@@ -360,6 +366,33 @@
             <span class="footer-btn" onclick="toggleSidebar()">INFO & ROUTES</span>
         </div>
     </div>
+
+<!-- Custom Tracker Edit Modal -->
+<div id="tracker-modal" class="custom-modal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <img id="modal-item-icon" src="" class="resource-icon">
+            <h3 id="modal-item-name">Edit Item</h3>
+            <button class="close-modal" onclick="closeTrackerModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <!-- Wrapped in input-row for side-by-side -->
+            <div class="input-row">
+                <div class="input-group">
+                    <label>Current</label>
+                    <input type="number" id="modal-input-current" class="t-input modal-field">
+                </div>
+                <div class="input-group">
+                    <label>Target</label>
+                    <input type="number" id="modal-input-target" class="t-input modal-field">
+                </div>
+            </div>
+            
+            <button class="add-track-btn save-btn" id="modal-save-btn">SAVE CHANGES</button>
+            <button class="delete-item-btn" id="modal-delete-btn" style="color:#ff4d4d; margin-top:10px; cursor:pointer; background:none; border:none; text-decoration:underline;">Remove Item</button>
+        </div>
+    </div>
+</div>
 
     <!-- LOAD DATABASE FIRST -->
     <script src="database.js"></script>

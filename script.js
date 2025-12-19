@@ -4,6 +4,7 @@
 let fileHandle, fileOffset = 0, isReading = false;
 let parseIntervalId = null, watchdogIntervalId = null;
 let pipWindow = null;
+let trackerViewMode = 'grid'; // Default to grid
 
 // Global function to handle the toggle and save state
 window.toggleIconVariant = function(playerName, imgEl) {
@@ -86,6 +87,53 @@ const itemInput = document.getElementById('item-input');
 const itemDatalist = document.getElementById('item-datalist');
 const trackerList = document.getElementById('tracker-list');
 let dragSrcIndex = null;
+
+let activeTooltip = null;
+
+function showTooltip(text, e) {
+    // Determine which document we are in (Main or PiP)
+    const targetDoc = e.target.ownerDocument;
+    
+    if (!activeTooltip) {
+        activeTooltip = targetDoc.createElement('div');
+        activeTooltip.className = 'global-tooltip';
+        targetDoc.body.appendChild(activeTooltip);
+    }
+
+    activeTooltip.textContent = text;
+    activeTooltip.style.display = 'block';
+    
+    updateTooltipPosition(e);
+}
+
+function updateTooltipPosition(e) {
+    if (!activeTooltip) return;
+
+    const gap = 15;
+    let x = e.clientX + gap;
+    let y = e.clientY + gap;
+
+    // Smart bounds checking (prevent cropping)
+    const tw = activeTooltip.offsetWidth;
+    const th = activeTooltip.offsetHeight;
+    const winW = e.target.ownerDocument.defaultView.innerWidth;
+    const winH = e.target.ownerDocument.defaultView.innerHeight;
+
+    if (x + tw > winW) x = e.clientX - tw - gap; // Flip to left
+    if (y + th > winH) y = e.clientY - th - gap; // Flip to top
+
+    activeTooltip.style.left = x + 'px';
+    activeTooltip.style.top = y + 'px';
+}
+
+function hideTooltip() {
+    if (activeTooltip) {
+        activeTooltip.style.display = 'none';
+        // Clean up to prevent multi-window ghosting
+        if (activeTooltip.parentNode) activeTooltip.parentNode.removeChild(activeTooltip);
+        activeTooltip = null;
+    }
+}
 
 // ==========================================
 // INITIALIZATION & DRAG/DROP SETUP
@@ -355,6 +403,16 @@ function updateItemDropdown() {
         });
     }
 }
+// --- View Toggle ---
+function toggleTrackerView() {
+    trackerViewMode = (trackerViewMode === 'grid') ? 'list' : 'grid';
+    
+    // Update button icon
+    const btn = document.getElementById('tracker-view-toggle');
+    if (btn) btn.textContent = (trackerViewMode === 'grid') ? '☰' : '⊞';
+    
+    renderTracker();
+}
 
 // --- Persistence Helpers ---
 function saveTrackerState() {
@@ -445,65 +503,117 @@ function updateItemValue(id, key, val) {
 function renderTracker() {
     const listEl = getUI('tracker-list');
     if (!listEl) return;
-    listEl.innerHTML = "";
     
-    trackerList.innerHTML = "";
+    listEl.innerHTML = "";
     if (trackedItems.length === 0) {
-        trackerList.innerHTML = '<div class="empty-state">Add items to track</div>';
+        listEl.innerHTML = '<div class="empty-state">Add items to track</div>';
         return;
     }
 
+    const isGrid = (trackerViewMode === 'grid');
+    listEl.classList.toggle('grid-view', isGrid);
+
     trackedItems.forEach((item, index) => {
         const isComplete = item.current >= item.target && item.target > 0;
-        const row = document.createElement('div');
-        row.className = `tracked-item-row ${isComplete ? 'complete' : ''}`;
-        
-        // --- DRAG & DROP SETUP ---
-        row.setAttribute('draggable', 'true');
-        row.dataset.index = index;
-        
-        row.addEventListener('dragstart', handleTrackDragStart);
-        row.addEventListener('dragenter', handleTrackDragEnter);
-        row.addEventListener('dragover', handleTrackDragOver);
-        row.addEventListener('dragleave', handleTrackDragLeave);
-        row.addEventListener('drop', handleTrackDrop);
-        row.addEventListener('dragend', handleTrackDragEnd);
-        // -------------------------
-        
-        // Image Path Logic
+        const progress = Math.min((item.current / (item.target || 1)) * 100, 100);
         const safeItemName = item.name.replace(/\s+/g, '_');
-        const rarityName = (item.rarity || 'common').toLowerCase();
-        const profIconName = (item.profession || 'miner').toLowerCase().replace(' ', '_');
-        
-        // NEW INLINE HTML STRUCTURE
-        row.innerHTML = `
-            <div class="t-left-group">
-                <img src="img/resources/${safeItemName}.png" class="resource-icon" 
+
+        if (isGrid) {
+            // --- GRID VIEW ---
+            const slot = document.createElement('div');
+            slot.className = `inventory-slot ${isComplete ? 'complete' : ''}`;
+            slot.setAttribute('draggable', 'true');
+            slot.dataset.index = index;
+
+            // Tooltip (Custom attribute for our CSS tooltip)
+            const progText = `${item.current} / ${item.target} (${Math.floor(progress)}%)`;
+            const tooltipText = `${item.name}\nProgress: ${item.current} / ${item.target} (${Math.floor(progress)}%)`;
+
+            slot.onmouseenter = (e) => showTooltip(tooltipText, e);
+            slot.onmousemove = (e) => updateTooltipPosition(e);
+            slot.onmouseleave = () => hideTooltip();
+
+            // Main click to open modal
+            slot.onclick = (e) => {
+             openTrackerModal(item.id);
+            };
+
+            slot.innerHTML = `
+                <button class="slot-delete-btn" title="Remove">×</button>
+                <img src="img/resources/${safeItemName}.png" class="slot-icon" 
+                onerror="this.src='img/resources/${safeItemName}.webp'; this.onerror=function(){this.style.display='none'};">
+                <div class="slot-count">${item.current.toLocaleString()}</div>
+                <div class="slot-progress-container">
+                <div class="slot-progress-bar" style="width: ${progress}%"></div>
+                </div>
+                `;
+
+            // Add event listener to the Red X specifically
+                slot.querySelector('.slot-delete-btn').onclick = (e) => {
+                e.stopPropagation(); // Prevents opening the modal when clicking X
+                if(confirm(`Stop tracking ${item.name}?`)) { removeTrackedItem(item.id);} };
+
+            // Drag and Drop Listeners for Grid
+            slot.addEventListener('dragstart', handleTrackDragStart);
+            slot.addEventListener('dragenter', handleTrackDragEnter);
+            slot.addEventListener('dragover', handleTrackDragOver);
+            slot.addEventListener('dragleave', handleTrackDragLeave);
+            slot.addEventListener('drop', handleTrackDrop);
+            slot.addEventListener('dragend', handleTrackDragEnd);
+
+            slot.innerHTML = `
+                <img src="img/resources/${safeItemName}.png" class="slot-icon" 
                      onerror="this.src='img/resources/${safeItemName}.webp'; this.onerror=function(){this.style.display='none'};">
-                <div class="t-info-text">
-                        <img src="img/quality/${rarityName}.png" class="rarity-icon" title="${item.rarity}" onerror="this.style.display='none'">
+                <div class="slot-count">${item.current.toLocaleString()}</div>
+                <div class="slot-progress-container">
+                    <div class="slot-progress-bar" style="width: ${progress}%"></div>
+                </div>
+            `;
+            listEl.appendChild(slot);
+
+        } else {
+            // --- LIST VIEW ---
+            const row = document.createElement('div');
+            row.className = `tracked-item-row ${isComplete ? 'complete' : ''}`;
+            row.setAttribute('draggable', 'true');
+            row.dataset.index = index;
+
+            // Reuse existing drag/drop logic
+            row.addEventListener('dragstart', handleTrackDragStart);
+            row.addEventListener('dragenter', handleTrackDragEnter);
+            row.addEventListener('dragover', handleTrackDragOver);
+            row.addEventListener('dragleave', handleTrackDragLeave);
+            row.addEventListener('drop', handleTrackDrop);
+            row.addEventListener('dragend', handleTrackDragEnd);
+
+            const rarityName = (item.rarity || 'common').toLowerCase();
+            const profIconName = (item.profession || 'miner').toLowerCase().replace(' ', '_');
+
+            row.innerHTML = `
+                <div class="t-left-group">
+                    <img src="img/resources/${safeItemName}.png" class="resource-icon" 
+                         onerror="this.src='img/resources/${safeItemName}.webp';">
+                    <div class="t-info-text">
+                        <img src="img/quality/${rarityName}.png" class="rarity-icon" onerror="this.style.display='none'">
                         <span class="t-level-badge">Lvl. ${item.level}</span>
                         <span class="t-item-name">${item.name}</span>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="t-input-container">
-                <input type="number" class="t-input" value="${item.current}" 
-                    onchange="updateItemValue(${item.id}, 'current', this.value)">
-                <span class="t-separator">/</span>
-                <input type="number" class="t-input" value="${item.target}" 
-                    onchange="updateItemValue(${item.id}, 'target', this.value)">
-            </div>
-
-            <div class="t-right-group">
-                <img src="img/jobs/${profIconName}.png" class="t-job-icon" onerror="this.style.display='none'">
-                <div class="t-status-col">
-                    <button class="t-delete-btn" onclick="removeTrackedItem(${item.id})">×</button>
-                    <span class="t-progress-text">${Math.floor((item.current / (item.target || 1)) * 100)}%</span>
+                <div class="t-input-container">
+                    <input type="number" class="t-input" value="${item.current}" onchange="updateItemValue(${item.id}, 'current', this.value)">
+                    <span class="t-separator">/</span>
+                    <input type="number" class="t-input" value="${item.target}" onchange="updateItemValue(${item.id}, 'target', this.value)">
                 </div>
-            </div>
-        `;
-        trackerList.appendChild(row);
+                <div class="t-right-group">
+                    <img src="img/jobs/${profIconName}.png" class="t-job-icon" onerror="this.style.display='none'">
+                    <div class="t-status-col">
+                        <button class="t-delete-btn" onclick="removeTrackedItem(${item.id})">×</button>
+                        <span class="t-progress-text">${Math.floor(progress)}%</span>
+                    </div>
+                </div>
+            `;
+            listEl.appendChild(row);
+        }
     });
 }
 
@@ -1653,6 +1763,9 @@ async function togglePiP(elementId, title) {
         pipWindow.switchMeterMode = window.switchMeterMode;
         pipWindow.toggleIconVariant = window.toggleIconVariant;
         pipWindow.modifyExpansion = window.modifyExpansion;
+        pipWindow.showTooltip = window.showTooltip;
+        pipWindow.updateTooltipPosition = window.updateTooltipPosition;
+        pipWindow.hideTooltip = window.hideTooltip;
 
         // Copy Styles from the main document to the PiP document
         [...document.styleSheets].forEach((styleSheet) => {
@@ -1737,6 +1850,42 @@ async function togglePiP(elementId, title) {
     } catch (err) {
         console.error("Failed to open PiP window:", err);
     }
+}
+
+function openTrackerModal(itemId) {
+    const item = trackedItems.find(t => t.id === itemId);
+    if (!item) return;
+
+    const modal = document.getElementById('tracker-modal');
+    const safeName = item.name.replace(/\s+/g, '_');
+    
+    document.getElementById('modal-item-name').textContent = item.name;
+    document.getElementById('modal-item-icon').src = `img/resources/${safeName}.png`;
+    document.getElementById('modal-input-current').value = item.current;
+    document.getElementById('modal-input-target').value = item.target;
+
+    // Set up save button
+    document.getElementById('modal-save-btn').onclick = () => {
+        const newCur = parseInt(document.getElementById('modal-input-current').value) || 0;
+        const newTar = parseInt(document.getElementById('modal-input-target').value) || 0;
+        updateItemValue(item.id, 'current', newCur);
+        updateItemValue(item.id, 'target', newTar);
+        closeTrackerModal();
+    };
+
+    // Set up delete button
+    document.getElementById('modal-delete-btn').onclick = () => {
+        if(confirm(`Stop tracking ${item.name}?`)) {
+            removeTrackedItem(item.id);
+            closeTrackerModal();
+        }
+    };
+
+    modal.style.display = 'flex';
+}
+
+function closeTrackerModal() {
+    document.getElementById('tracker-modal').style.display = 'none';
 }
 
 // INITIALIZATION
