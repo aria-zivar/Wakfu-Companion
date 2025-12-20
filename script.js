@@ -633,6 +633,8 @@ function removeTrackedItem(id) {
 function renderTracker() {
   const listEl = getUI("tracker-list");
   if (!listEl) return;
+
+  // Clear current UI
   listEl.innerHTML = "";
 
   if (trackedItems.length === 0) {
@@ -647,17 +649,18 @@ function renderTracker() {
     const isComplete = item.current >= item.target && item.target > 0;
     const progress = Math.min((item.current / (item.target || 1)) * 100, 100);
 
-    // TOP-LEFT CORNER ICON
-    const profFile =
+    // 1. TOP-LEFT CORNER ICON
+    const profFilename =
       item.profession === "ALL"
         ? "monster_resource"
         : item.profession.toLowerCase().replace(/\s+/g, "_");
-    const profIconPath = `img/resources/${profFile}.png`;
+    const profIconPath = `img/resources/${profFilename}.png`;
 
-    // ITEM IMAGE logic (Remote for ALL)
+    // 2. MAIN ITEM ICON: RESTORED TO LOCAL FOLDER img/items/
     let itemIconPath;
     if (item.profession === "ALL" && item.imgId) {
-      itemIconPath = `https://vertylo.github.io/wakassets/items/${item.imgId}.png`;
+      // Now loading from your repository's local folder
+      itemIconPath = `img/items/${item.imgId}.png`;
     } else {
       const safeItemName = item.name.replace(/\s+/g, "_");
       itemIconPath = `img/resources/${safeItemName}.png`;
@@ -666,48 +669,87 @@ function renderTracker() {
     const rarityName = (item.rarity || "common").toLowerCase();
     const tooltipText = `${
       item.name
-    }\nProgress: ${item.current.toLocaleString()} / ${item.target.toLocaleString()}`;
+    }\nProgress: ${item.current.toLocaleString()} / ${item.target.toLocaleString()} (${Math.floor(
+      progress
+    )}%)`;
 
     if (isGrid) {
       const slot = document.createElement("div");
       slot.className = `inventory-slot ${isComplete ? "complete" : ""}`;
       slot.setAttribute("draggable", "true");
       slot.dataset.index = index;
-      slot.onclick = () => openTrackerModal(item.id);
+
       slot.onmouseenter = (e) => showTooltip(tooltipText, e);
+      slot.onmousemove = (e) => updateTooltipPosition(e);
       slot.onmouseleave = () => hideTooltip();
+      slot.onclick = () => openTrackerModal(item.id);
+
       slot.addEventListener("dragstart", handleTrackDragStart);
       slot.addEventListener("dragover", handleTrackDragOver);
       slot.addEventListener("drop", handleTrackDrop);
 
       slot.innerHTML = `
                 <img src="${profIconPath}" class="slot-prof-icon" onerror="this.style.display='none'">
-                <img src="${itemIconPath}" class="slot-icon" onerror="this.src='img/resources/not_found.png';">
+                <img src="${itemIconPath}" class="slot-icon" 
+                     onerror="this.src='img/resources/not_found.png';">
                 <div class="slot-count">${item.current.toLocaleString()}</div>
-                <div class="slot-progress-container"><div class="slot-progress-bar" style="width: ${progress}%"></div></div>
+                <div class="slot-progress-container">
+                    <div class="slot-progress-bar" style="width: ${progress}%"></div>
+                </div>
             `;
       listEl.appendChild(slot);
     } else {
       const row = document.createElement("div");
       row.className = `tracked-item-row ${isComplete ? "complete" : ""}`;
+      row.setAttribute("draggable", "true");
+      row.dataset.index = index;
+
+      row.addEventListener("dragstart", handleTrackDragStart);
+      row.addEventListener("dragover", handleTrackDragOver);
+      row.addEventListener("drop", handleTrackDrop);
+
       row.innerHTML = `
-                <div class="t-left-group" style="cursor: pointer;" onclick="openTrackerModal(${item.id})">
-                    <img src="${itemIconPath}" class="resource-icon" onerror="this.src='img/resources/not_found.png';">
+                <div class="t-left-group" style="cursor: pointer;" onclick="openTrackerModal(${
+                  item.id
+                })">
+                    <img src="${itemIconPath}" class="resource-icon" 
+                         onerror="this.src='img/resources/not_found.png';">
                     <div class="t-info-text">
-                        <img src="img/quality/${rarityName}.png" class="rarity-icon">
+                        <img src="img/quality/${rarityName}.png" class="rarity-icon" onerror="this.style.display='none'">
                         <span class="t-level-badge">Lvl. ${item.level}</span>
                         <span class="t-item-name">${item.name}</span>
                     </div>
                 </div>
                 <div class="t-input-container">
-                    <input type="number" class="t-input" value="${item.current}" onchange="updateItemValue(${item.id}, 'current', this.value)"> / 
-                    <input type="number" class="t-input" value="${item.target}" onchange="updateItemValue(${item.id}, 'target', this.value)">
+                    <input type="number" class="t-input" value="${
+                      item.current
+                    }" onchange="updateItemValue(${
+        item.id
+      }, 'current', this.value)">
+                    <span class="t-separator">/</span>
+                    <input type="number" class="t-input" value="${
+                      item.target
+                    }" onchange="updateItemValue(${
+        item.id
+      }, 'target', this.value)">
                 </div>
                 <div class="t-right-group">
-                    <img src="${profIconPath}" class="t-job-icon">
-                    <button class="t-delete-btn" onclick="removeTrackedItem(${item.id})">×</button>
+                    <img src="${profIconPath}" class="t-job-icon" onerror="this.style.display='none'">
+                    <div class="t-status-col">
+                        <button class="t-delete-btn" onclick="removeTrackedItem(${
+                          item.id
+                        })">×</button>
+                        <span class="t-progress-text">${Math.floor(
+                          progress
+                        )}%</span>
+                    </div>
                 </div>
             `;
+      const infoArea = row.querySelector(".t-left-group");
+      infoArea.onmouseenter = (e) => showTooltip(tooltipText, e);
+      infoArea.onmousemove = (e) => updateTooltipPosition(e);
+      infoArea.onmouseleave = () => hideTooltip();
+
       listEl.appendChild(row);
     }
   });
@@ -2365,17 +2407,16 @@ function openTrackerModal(itemId) {
 
   const modal = document.getElementById("tracker-modal");
 
-  // MAIN ITEM ICON: Use Remote URL for "ALL", Local for others
+  // MAIN ITEM ICON: Pointing to Local Folder img/items/
   const itemIconPath =
     item.profession === "ALL" && item.imgId
-      ? `https://vertylo.github.io/wakassets/items/${item.imgId}.png`
+      ? `img/items/${item.imgId}.png`
       : `img/resources/${item.name.replace(/\s+/g, "_")}.png`;
 
   document.getElementById("modal-item-name").textContent = item.name;
   const modalIcon = document.getElementById("modal-item-icon");
   modalIcon.src = itemIconPath;
 
-  // Fallback if remote image is missing or doesn't load
   modalIcon.onerror = function () {
     this.src = "img/resources/not_found.png";
     this.onerror = null;
