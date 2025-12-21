@@ -112,9 +112,11 @@ let activeTooltip = null;
 function generateSpellMap() {
   if (typeof classSpells === "undefined") return;
   spellToClassMap = {};
-  allKnownSpells = new Set(); // Clear and rebuild
+  allKnownSpells = new Set();
 
   for (const [className, langData] of Object.entries(classSpells)) {
+    // Only process keys that are actual class names (feca, iop, etc.)
+    // This provides a secondary safety layer
     if (typeof langData === "object" && !Array.isArray(langData)) {
       for (const spells of Object.values(langData)) {
         if (Array.isArray(spells)) {
@@ -124,15 +126,10 @@ function generateSpellMap() {
           });
         }
       }
-    } else if (Array.isArray(langData)) {
-      langData.forEach((spell) => {
-        spellToClassMap[spell] = className;
-        allKnownSpells.add(spell);
-      });
     }
   }
   console.log(
-    `Spell database initialized: ${allKnownSpells.size} spells loaded.`
+    `Class Database: ${Object.keys(classSpells).length} classes loaded.`
   );
 }
 
@@ -182,12 +179,29 @@ function hideTooltip() {
   }
 }
 
+let monsterLookup = {};
+
+function initMonsterDatabase() {
+  if (typeof wakfuMonsters === "undefined") return;
+
+  monsterLookup = {};
+  wakfuMonsters.forEach((m) => {
+    // Map every language version of the name to the imgId
+    if (m.nameEN) monsterLookup[m.nameEN.toLowerCase()] = m.imgId;
+    if (m.nameFR) monsterLookup[m.nameFR.toLowerCase()] = m.imgId;
+    if (m.nameES) monsterLookup[m.nameES.toLowerCase()] = m.imgId;
+    if (m.namePT) monsterLookup[m.namePT.toLowerCase()] = m.imgId;
+  });
+}
+
 // ==========================================
 // INITIALIZATION & DRAG/DROP SETUP
 // ==========================================
 generateSpellMap();
 renderMeter();
 initTrackerDropdowns();
+initMonsterDatabase();
+
 setupDragAndDrop();
 
 // Check for previous file immediately on load
@@ -1078,42 +1092,36 @@ function switchMeterMode(mode) {
 }
 
 function detectClass(playerName, spellName) {
-  // 1. EXIT if it's a known enemy family or specific mob
-  if (typeof wakfuEnemies !== "undefined") {
-    const isEnemy = wakfuEnemies.some((fam) =>
-      playerName.toLowerCase().includes(fam.toLowerCase())
-    );
-    if (isEnemy) return;
-  }
+  const lowerName = playerName.toLowerCase().trim();
 
-  // 2. Class Check based on Spells
+  // Skip detection if this entity is known to be a monster
+  if (monsterLookup[lowerName]) return;
+
   if (spellToClassMap[spellName]) {
     const detected = spellToClassMap[spellName];
     if (playerClasses[playerName] !== detected) {
       playerClasses[playerName] = detected;
+      // Clear icon cache so it re-renders with the new class icon
       delete playerIconCache[playerName];
     }
   }
 }
 
 function isPlayerAlly(p) {
+  // 1. Manual overrides (from dragging) take highest priority for PvP/Mistakes
   if (manualOverrides[p.name]) return manualOverrides[p.name] === "ally";
 
-  // If they have a detected class (e.g. eliotrope), they are an Ally
-  if (playerClasses[p.name]) return true;
+  const lowerName = p.name.toLowerCase().trim();
 
-  // Check summon list
-  if (typeof allySummons !== "undefined" && allySummons.includes(p.name))
-    return true;
+  // 2. Check if the name exists in our new multi-language monster database
+  // If found in monsterLookup, they are definitely an enemy.
+  if (monsterLookup[lowerName]) {
+    return false;
+  }
 
-  // Known enemy logic
-  const isEnemyDB =
-    typeof wakfuEnemies !== "undefined" &&
-    wakfuEnemies.some((fam) => p.name.includes(fam));
-  if (isEnemyDB) return false;
-
-  // Default to Enemy for safety, but class detection usually fixes this on the first spell cast
-  return false;
+  // 3. Default: If not a known monster, assume it's a Player/Ally.
+  // Class detection will eventually assign them a Class icon.
+  return true;
 }
 
 // Helper at the top of your script or inside processFightLog
@@ -1444,7 +1452,7 @@ function renderMeter() {
   const alliesTotalEl = getUI("allies-total-val");
   const enemiesTotalEl = getUI("enemies-total-val");
 
-  if (!alliesContainer || !enemiesContainer) return;
+  if (!alliesContainer || !enemiesContainer) return; // Guard for PiP transition
 
   if (players.length === 0) {
     alliesContainer.innerHTML = `<div class="empty-state">Waiting for combat...</div>`;
@@ -1492,38 +1500,49 @@ function renderMeter() {
           : "0.0%";
       const isExpanded = expandedPlayers.has(p.name);
 
-      // --- ICON LOGIC (Class + Gender Toggle vs Creature) ---
+      // --- NEW ICON LOGIC (Monster DB vs Class vs Default) ---
       let iconHtml = playerIconCache[p.name];
 
       if (!iconHtml) {
-        const classIconName = playerClasses[p.name];
-        if (classIconName) {
-          const isAlt = playerVariantState[p.name];
-          const currentSrc = isAlt
-            ? `./img/classes/${classIconName}-f.png`
-            : `./img/classes/${classIconName}.png`;
+        const lowerName = p.name.toLowerCase().trim();
+        const monsterImgId = monsterLookup[lowerName];
 
-          iconHtml = `<img src="${currentSrc}" 
+        if (monsterImgId) {
+          // 1. Check if it is a Monster from wakfu_monsters.js
+          iconHtml = `<img src="./img/monsters/${monsterImgId}" 
                                      class="class-icon" 
-                                     title="${classIconName}" 
-                                     onmouseover="toggleIconVariant('${p.name.replace(
-                                       /'/g,
-                                       "\\'"
-                                     )}', this)" 
-                                     onerror="this.src='./img/classes/not_found.png'; this.onerror=null;">`;
+                                     onerror="this.src='./img/classes/not_found.png';">`;
         } else {
-          const safeName = p.name.replace(/\s+/g, "_");
-          iconHtml = `<img src="./img/creatures/100px-${safeName}.png" class="class-icon" onerror="this.src='./img/classes/not_found.png'; this.onerror=null;">`;
+          // 2. Otherwise, check for a detected player class
+          const classIconName = playerClasses[p.name];
+          if (classIconName) {
+            const isAlt = playerVariantState[p.name];
+            const currentSrc = isAlt
+              ? `./img/classes/${classIconName}-f.png`
+              : `./img/classes/${classIconName}.png`;
+
+            iconHtml = `<img src="${currentSrc}" 
+                                       class="class-icon" 
+                                       title="${classIconName}" 
+                                       onmouseover="toggleIconVariant('${p.name.replace(
+                                         /'/g,
+                                         "\\'"
+                                       )}', this)" 
+                                       onerror="this.src='./img/classes/not_found.png'; this.onerror=null;">`;
+          } else {
+            // 3. Default Icon for allies before a class is detected
+            iconHtml = `<img src="./img/classes/not_found.png" class="class-icon">`;
+          }
         }
         playerIconCache[p.name] = iconHtml;
       }
+      // --- END ICON LOGIC ---
 
-      // Create the main block
       const rowBlock = document.createElement("div");
       rowBlock.className = `player-block ${isExpanded ? "expanded" : ""}`;
       rowBlock.setAttribute("draggable", "true");
 
-      // --- DRAG & DROP BINDING EVENTS ---
+      // --- DRAG & DROP SETUP ---
       rowBlock.addEventListener("dragstart", (e) => {
         e.dataTransfer.setData("text/plain", p.name);
         rowBlock.style.opacity = "0.5";
@@ -1551,7 +1570,6 @@ function renderMeter() {
         }
       });
 
-      // Style determination based on tab
       let barClass, textClass;
       if (activeMeterMode === "damage") {
         barClass = "damage-bar";
@@ -1580,7 +1598,6 @@ function renderMeter() {
             `;
       rowBlock.appendChild(mainRow);
 
-      // --- SPELL BREAKDOWN (ELEMENT ICONS & LOST HITS) ---
       if (isExpanded) {
         const spellContainer = document.createElement("div");
         spellContainer.className = "spell-list open";
@@ -1599,10 +1616,8 @@ function renderMeter() {
           const spellContribPercent =
             p.total > 0 ? ((s.val / p.total) * 100).toFixed(1) + "%" : "0.0%";
 
-          // FIXED ELEMENT ICON MAPPING
-          let iconName = (s.element || "neutral").toLowerCase();
-          const iconPath = `./img/elements/${iconName}.png`;
-          const iconHtml = `<img src="${iconPath}" class="spell-icon" onerror="this.src='./img/elements/neutral.png'">`;
+          const iconName = (s.element || "neutral").toLowerCase();
+          const iconHtmlSpell = `<img src="./img/elements/${iconName}.png" class="spell-icon" onerror="this.src='./img/elements/neutral.png'">`;
 
           const spellRow = document.createElement("div");
           spellRow.className = "spell-row";
@@ -1610,7 +1625,7 @@ function renderMeter() {
           spellRow.innerHTML = `
                         <div class="spell-bg-bar" style="width: ${spellBarPercent}%"></div>
                         <div class="spell-info">
-                            ${iconHtml}
+                            ${iconHtmlSpell}
                             <span class="spell-name">${s.realName}</span>
                         </div>
                         <div class="spell-val">${s.val.toLocaleString()}</div>
@@ -1626,34 +1641,6 @@ function renderMeter() {
 
   renderList(allies, alliesContainer, totalAllyVal);
   renderList(enemies, enemiesContainer, totalEnemyVal);
-}
-
-function mergeSummonData(summon, master) {
-  [fightData, healData, armorData].forEach((dataSet) => {
-    if (dataSet[summon]) {
-      if (!dataSet[master])
-        dataSet[master] = { name: master, total: 0, spells: {} };
-
-      // Move total
-      dataSet[master].total += dataSet[summon].total;
-
-      // Move spells and prefix them
-      Object.entries(dataSet[summon].spells).forEach(([key, s]) => {
-        const newKey = `${s.realName} (${summon})|${s.element || "neutral"}`;
-        if (!dataSet[master].spells[newKey]) {
-          dataSet[master].spells[newKey] = {
-            val: 0,
-            element: s.element,
-            realName: `${s.realName} (${summon})`,
-          };
-        }
-        dataSet[master].spells[newKey].val += s.val;
-      });
-
-      // Delete the summon from top level
-      delete dataSet[summon];
-    }
-  });
 }
 
 // ==========================================
