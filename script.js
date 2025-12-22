@@ -1452,7 +1452,7 @@ function renderMeter() {
   const alliesTotalEl = getUI("allies-total-val");
   const enemiesTotalEl = getUI("enemies-total-val");
 
-  if (!alliesContainer || !enemiesContainer) return; // Guard for PiP transition
+  if (!alliesContainer || !enemiesContainer) return;
 
   if (players.length === 0) {
     alliesContainer.innerHTML = `<div class="empty-state">Waiting for combat...</div>`;
@@ -1500,49 +1500,38 @@ function renderMeter() {
           : "0.0%";
       const isExpanded = expandedPlayers.has(p.name);
 
-      // --- NEW ICON LOGIC (Monster DB vs Class vs Default) ---
+      // --- ICON LOGIC ---
       let iconHtml = playerIconCache[p.name];
-
       if (!iconHtml) {
         const lowerName = p.name.toLowerCase().trim();
         const monsterImgId = monsterLookup[lowerName];
 
         if (monsterImgId) {
-          // 1. Check if it is a Monster from wakfu_monsters.js
-          iconHtml = `<img src="./img/monsters/${monsterImgId}" 
-                                     class="class-icon" 
-                                     onerror="this.src='./img/classes/not_found.png';">`;
+          iconHtml = `<img src="./img/monsters/${monsterImgId}" class="class-icon" onerror="this.src='./img/classes/not_found.png';">`;
         } else {
-          // 2. Otherwise, check for a detected player class
           const classIconName = playerClasses[p.name];
           if (classIconName) {
             const isAlt = playerVariantState[p.name];
             const currentSrc = isAlt
               ? `./img/classes/${classIconName}-f.png`
               : `./img/classes/${classIconName}.png`;
-
-            iconHtml = `<img src="${currentSrc}" 
-                                       class="class-icon" 
-                                       title="${classIconName}" 
-                                       onmouseover="toggleIconVariant('${p.name.replace(
-                                         /'/g,
-                                         "\\'"
-                                       )}', this)" 
-                                       onerror="this.src='./img/classes/not_found.png'; this.onerror=null;">`;
+            iconHtml = `<img src="${currentSrc}" class="class-icon" onmouseover="toggleIconVariant('${p.name.replace(
+              /'/g,
+              "\\'"
+            )}', this)" onerror="this.src='./img/classes/not_found.png';">`;
           } else {
-            // 3. Default Icon for allies before a class is detected
             iconHtml = `<img src="./img/classes/not_found.png" class="class-icon">`;
           }
         }
         playerIconCache[p.name] = iconHtml;
       }
-      // --- END ICON LOGIC ---
 
+      // Create the main block
       const rowBlock = document.createElement("div");
       rowBlock.className = `player-block ${isExpanded ? "expanded" : ""}`;
       rowBlock.setAttribute("draggable", "true");
 
-      // --- DRAG & DROP SETUP ---
+      // --- DRAG & DROP BINDING EVENTS (RE-ENABLED) ---
       rowBlock.addEventListener("dragstart", (e) => {
         e.dataTransfer.setData("text/plain", p.name);
         rowBlock.style.opacity = "0.5";
@@ -1570,17 +1559,18 @@ function renderMeter() {
         }
       });
 
-      let barClass, textClass;
-      if (activeMeterMode === "damage") {
-        barClass = "damage-bar";
-        textClass = "damage-text";
-      } else if (activeMeterMode === "healing") {
-        barClass = "healing-bar";
-        textClass = "healing-text";
-      } else {
-        barClass = "armor-bar";
-        textClass = "armor-text";
-      }
+      let barClass =
+        activeMeterMode === "damage"
+          ? "damage-bar"
+          : activeMeterMode === "healing"
+          ? "healing-bar"
+          : "armor-bar";
+      let textClass =
+        activeMeterMode === "damage"
+          ? "damage-text"
+          : activeMeterMode === "healing"
+          ? "healing-text"
+          : "armor-text";
 
       const mainRow = document.createElement("div");
       mainRow.className = "player-row";
@@ -1616,12 +1606,11 @@ function renderMeter() {
           const spellContribPercent =
             p.total > 0 ? ((s.val / p.total) * 100).toFixed(1) + "%" : "0.0%";
 
-          const iconName = (s.element || "neutral").toLowerCase();
+          let iconName = (s.element || "neutral").toLowerCase();
           const iconHtmlSpell = `<img src="./img/elements/${iconName}.png" class="spell-icon" onerror="this.src='./img/elements/neutral.png'">`;
 
           const spellRow = document.createElement("div");
           spellRow.className = "spell-row";
-
           spellRow.innerHTML = `
                         <div class="spell-bg-bar" style="width: ${spellBarPercent}%"></div>
                         <div class="spell-info">
@@ -1746,6 +1735,44 @@ function setChatFilter(filter) {
     }
   });
   chatList.scrollTop = chatList.scrollHeight;
+}
+
+function mergeSummonData(summon, master) {
+  // We iterate through all 3 categories: damage, healing, and armor
+  [fightData, healData, armorData].forEach((dataSet) => {
+    if (dataSet[summon]) {
+      // Create master entry if they don't exist in this specific dataset yet
+      if (!dataSet[master]) {
+        dataSet[master] = { name: master, total: 0, spells: {} };
+      }
+
+      // 1. Move the total value
+      dataSet[master].total += dataSet[summon].total;
+
+      // 2. Move and prefix the spells so you know they came from the summon
+      Object.entries(dataSet[summon].spells).forEach(([key, s]) => {
+        const originalName = s.realName || key.split("|")[0];
+        const newSpellName = `${originalName} (${summon})`;
+        const element = s.element || "Neutral";
+        const newKey = `${newSpellName}|${element}`;
+
+        if (!dataSet[master].spells[newKey]) {
+          dataSet[master].spells[newKey] = {
+            val: 0,
+            element: element,
+            realName: newSpellName,
+          };
+        }
+        dataSet[master].spells[newKey].val += s.val;
+      });
+
+      // 3. Remove the summon from the top level so they disappear from the list
+      delete dataSet[summon];
+
+      // 4. Clear icon cache for the master to ensure clean re-render
+      delete playerIconCache[master];
+    }
+  });
 }
 
 // CHAT CHANNEL CATEGORIES

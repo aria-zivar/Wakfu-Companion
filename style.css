@@ -893,6 +893,14 @@ button.reset-btn:hover {
   color: #fff;
   border-color: var(--btn-active-red);
 }
+
+.player-block.drag-target {
+  border: 2px dashed var(--accent);
+  background: rgba(0, 210, 255, 0.1);
+  transform: scale(1.02);
+  transition: transform 0.1s ease;
+}
+
 #chat-list {
   overflow-y: auto;
   flex-grow: 1;
