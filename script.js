@@ -1156,7 +1156,7 @@ function processFightLog(line) {
 
   const parts = line.split(/\] /);
   if (parts.length < 2) return;
-  const content = parts.slice(1).join("] ").trim();
+  const content = parts[1].trim();
 
   // Handle Battle Reset logic
   if (
@@ -1197,6 +1197,18 @@ function processFightLog(line) {
     const suffix = actionMatch[5].trim();
 
     if (isNaN(amount) || amount <= 0) return;
+
+    // --- SUMMON SPAWN FILTER ---
+    // If the target is a known summon (like Tree, Coney, etc.)
+    // and it's receiving +HP, we ignore it to prevent summoning from counting as healing.
+    const isSummon =
+      typeof allySummons !== "undefined" &&
+      allySummons.some((s) => target.toLowerCase().includes(s.toLowerCase()));
+
+    if (sign === "+" && isSummon && unit.match(new RegExp(hpUnits, "i"))) {
+      return;
+    }
+    // ---------------------------
 
     // Extract suffixes: e.g., (Fire) (Lost) (Block!)
     const details = (suffix.match(/\(([^)]+)\)/g) || []).map((p) =>

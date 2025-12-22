@@ -3369,6 +3369,7 @@ const classSpells = {
 const allySummons = [
   "Gobgob",
   "Coney",
+  "Sadida Tree",
   "Super Coney",
   "Beacon",
   "Microbot",
