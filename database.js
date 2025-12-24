@@ -2544,6 +2544,8 @@ const classSpells = {
   zobal: {
     en: [
       "Spitfall",
+      "Manhunt",
+      "Sign",
       "Backbeat",
       "Spittoon",
       "Fugue",

@@ -1149,6 +1149,40 @@ function normalizeElement(el) {
   return elementMap[low] || low.charAt(0).toUpperCase() + low.slice(1);
 }
 
+// Entities that should NEVER own subsequent damage procs
+const nonCombatantList = [
+  "Gobgob",
+  "Beacon",
+  "Balise",
+  "Standard-Bearing Puppet",
+  "Microbot",
+  "Cybot",
+  "Dial",
+  "Cadran",
+  "Coney",
+  "Lapino",
+];
+
+// Helper to find a player by their detected class
+function findFirstPlayerByClass(targetClass) {
+  return Object.keys(playerClasses).find(
+    (name) => playerClasses[name] === targetClass
+  );
+}
+
+// Helper to ensure damage goes to the rightful class owner
+function getSignatureCaster(spellName, defaultCaster) {
+  const signatureClass = spellToClassMap[spellName];
+  if (!signatureClass) return defaultCaster;
+
+  // Check if the current caster is already the correct class
+  if (playerClasses[defaultCaster] === signatureClass) return defaultCaster;
+
+  // If not, try to find a player in the fight who IS that class
+  const classOwner = findFirstPlayerByClass(signatureClass);
+  return classOwner || defaultCaster;
+}
+
 function processFightLog(line) {
   const hpUnits = "HP|PdV|PV";
   const armorUnits = "Armor|Armadura|Armure";
@@ -1179,9 +1213,14 @@ function processFightLog(line) {
     /^(.*?) (?:casts|lance(?: le sort)?|lanza(?: el hechizo)?|lança(?: o feitiço)?) (.*?)(?:\.|\s\(|$)/i
   );
   if (castMatch) {
-    currentCaster = castMatch[1].trim();
-    currentSpell = castMatch[2].trim();
-    detectClass(currentCaster, currentSpell);
+    const casterCandidate = castMatch[1].trim();
+    const castSpell = castMatch[2].trim();
+
+    if (!nonCombatantList.some((nc) => casterCandidate.includes(nc))) {
+      currentCaster = casterCandidate;
+      currentSpell = castSpell;
+      detectClass(currentCaster, currentSpell);
+    }
     return;
   }
 
@@ -1198,24 +1237,20 @@ function processFightLog(line) {
 
     if (isNaN(amount) || amount <= 0) return;
 
-    // --- SUMMON SPAWN FILTER ---
+    // Summon Spawn Filter
     const isSummon =
       typeof allySummons !== "undefined" &&
       allySummons.some((s) => target.toLowerCase().includes(s.toLowerCase()));
-
-    if (sign === "+" && isSummon && unit.match(new RegExp(hpUnits, "i"))) {
+    if (sign === "+" && isSummon && unit.match(new RegExp(hpUnits, "i")))
       return;
-    }
 
-    // Extract suffixes: e.g., (Fire) (Lost) (Regeneration Potion)
+    // Extract suffixes: e.g., (Fire) (Defensive Orb Shield)
     const details = (suffix.match(/\(([^)]+)\)/g) || []).map((p) =>
       p.slice(1, -1)
     );
 
     let detectedElement = null;
     let spellOverride = null;
-
-    // Noise to ignore when looking for procs/items
     const noise = [
       "Block!",
       "Critical",
@@ -1229,26 +1264,39 @@ function processFightLog(line) {
       if (norm) {
         detectedElement = norm;
       } else if (!noise.includes(d)) {
-        // If the detail is "Lost", a Potion, a Prayer, or a known spell, override the name
+        // FIXED: Check if the detail contains a known spell name (e.g., "Defensive Orb Shield" contains "Defensive Orb")
         if (
           d.toLowerCase() === "lost" ||
           d.includes("Potion") ||
-          d.includes("Prayer") ||
-          allKnownSpells.has(d)
+          d.includes("Prayer")
         ) {
           spellOverride = d;
+        } else {
+          const knownMatch = Array.from(allKnownSpells).find((s) =>
+            d.includes(s)
+          );
+          if (knownMatch) spellOverride = knownMatch;
         }
       }
     }
 
-    // ATTRIBUTION LOGIC:
-    // If it's a heal and we don't have a current caster, attribute to target (Self-item/passive)
+    // ATTRIBUTION LOGIC
     let finalCaster = currentCaster;
-    if (sign === "+" && (currentCaster === "Unknown" || !currentCaster)) {
+
+    // If it's a heal or armor and we don't have an active caster, attribute to target (self-proc)
+    if (
+      (sign === "+" || unit.match(new RegExp(armorUnits, "i"))) &&
+      (currentCaster === "Unknown" || !currentCaster)
+    ) {
       finalCaster = target;
     }
 
     let finalSpell = spellOverride || currentSpell;
+
+    // SIGNATURE REROUTING (Forces spells like Tetatoxin or Defensive Orb to the right class)
+    if (finalSpell !== "Unknown Spell" && finalSpell !== "Passive / Indirect") {
+      finalCaster = getSignatureCaster(finalSpell, finalCaster);
+    }
 
     // Bind summons to masters
     if (summonBindings[finalCaster]) {
@@ -1257,14 +1305,15 @@ function processFightLog(line) {
       finalCaster = master;
     }
 
-    // Specific logic for reflect/state passives
+    // Reflect logic
     if (["Burning Armor", "Armadura Ardiente"].includes(spellOverride)) {
       finalCaster = target;
     }
 
     const isArmor = unit.match(new RegExp(armorUnits, "i"));
     if (isArmor) {
-      updateCombatData(armorData, target, finalSpell, amount, null);
+      // FIXED: Attribute Armor to the CASTER (Feca), not the target.
+      updateCombatData(armorData, finalCaster, finalSpell, amount, null);
     } else if (sign === "+") {
       updateCombatData(
         healData,
