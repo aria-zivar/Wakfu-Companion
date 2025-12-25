@@ -14,6 +14,7 @@ let allKnownSpells = new Set();
 const MAX_CACHE_SIZE = 200;
 let trackerDirty = false;
 const MAX_CHAT_HISTORY = 200; // Limit chat DOM nodes to save memory
+let currentTrackerFilter = "SHOW_ALL";
 
 // Global function to handle the toggle and save state
 window.toggleIconVariant = function (playerName, imgEl) {
@@ -671,7 +672,7 @@ function sortTrackerItems() {
   const btn = document.querySelector(
     ".panel-header button[title='Sort by Profession']"
   );
-  if (btn) btn.textContent = sortDirection === 1 ? "AZ ↓" : "ZA ↑";
+  if (btn) btn.textContent = sortDirection === 1 ? "↓" : "↑";
 
   trackedItems.sort((a, b) => {
     const profA = a.profession || "Z_Other";
@@ -707,6 +708,27 @@ function sortTrackerItems() {
 // TRACKER RENDER LOGIC
 // ==========================================
 
+function setTrackerFilter(filter) {
+  currentTrackerFilter = filter;
+
+  // Update UI State
+  const buttons = document.querySelectorAll(
+    ".tracker-filters .filter-icon-btn"
+  );
+  buttons.forEach((btn) => btn.classList.remove("active"));
+
+  // Determine ID based on filter
+  let btnId = "tf-all";
+  if (filter !== "SHOW_ALL") {
+    btnId = "tf-" + filter.toLowerCase();
+  }
+
+  const activeBtn = document.getElementById(btnId);
+  if (activeBtn) activeBtn.classList.add("active");
+
+  renderTracker();
+}
+
 function renderTracker() {
   const listEl = getUI("tracker-list");
   if (!listEl) return;
@@ -719,15 +741,37 @@ function renderTracker() {
     return;
   }
 
+  // --- FILTERING LOGIC ---
+  let displayItems = trackedItems;
+
+  if (currentTrackerFilter !== "SHOW_ALL") {
+    displayItems = trackedItems.filter((item) => {
+      // Trapper Filter: Shows items with profession 'Trapper' AND 'ALL' (Monster Drops)
+      if (currentTrackerFilter === "Trapper") {
+        return item.profession === "Trapper" || item.profession === "ALL";
+      }
+      // Exact Match for others (Miner, Farmer, etc.)
+      return item.profession === currentTrackerFilter;
+    });
+  }
+
+  if (displayItems.length === 0) {
+    listEl.innerHTML =
+      '<div class="empty-state">No items in this category.</div>';
+    return;
+  }
+  // -----------------------
+
   const isGrid = trackerViewMode === "grid";
   listEl.classList.toggle("grid-view", isGrid);
 
-  trackedItems.forEach((item, index) => {
+  // Use displayItems instead of trackedItems for the loop
+  displayItems.forEach((item, index) => {
+    // ... [Rest of the existing render logic remains exactly the same] ...
     const isComplete = item.current >= item.target && item.target > 0;
     const progress = Math.min((item.current / (item.target || 1)) * 100, 100);
 
     // 1. TOP-LEFT CORNER ICON (Profession)
-    // Handle cases where profession might be missing or "ALL"
     const profNameRaw = item.profession || "z_other";
     const profFilename =
       profNameRaw === "ALL"
@@ -769,8 +813,6 @@ function renderTracker() {
       slot.addEventListener("dragover", handleTrackDragOver);
       slot.addEventListener("drop", handleTrackDrop);
 
-      /* Add Delete Button (Hidden until hover via CSS) */
-      /* FIX: Added onerror handlers */
       slot.innerHTML = `
                 <button class="slot-delete-btn" onclick="event.stopPropagation(); removeTrackedItem(${
                   item.id
@@ -794,7 +836,6 @@ function renderTracker() {
       row.addEventListener("dragover", handleTrackDragOver);
       row.addEventListener("drop", handleTrackDrop);
 
-      /* FIX: Added onerror handlers */
       row.innerHTML = `
                 <div class="t-left-group" style="cursor: pointer;" onclick="openTrackerModal(${
                   item.id

@@ -129,8 +129,8 @@ body {
   font-weight: bold;
   color: #000;
   background: var(--accent); /* Uses the bright cyan accent */
-  padding: 2px 12px;
-  border-radius: 4px;
+  padding: 1px 8px;
+  border-radius: 2px;
   transition: all 0.2s;
   text-transform: uppercase;
   text-decoration: none !important;
@@ -1743,12 +1743,19 @@ button.reset-btn:hover {
   color: #fff;
   width: 30px;
   height: 30px;
+  margin-left: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+@media (max-width: 1300px) {
+  .tracker-filters {
+    display: none; /* Hide filters if space is tight, or adapt */
+  }
 }
 
 .pip-btn:hover {
@@ -2426,4 +2433,50 @@ body.pip-window .empty-state {
   flex-direction: column;
   gap: 20px; /* Increased from 15px to 20px for separation between cards */
   margin-top: 25px; /* Increased from 15px to 25px for spacing from the Calculate button */
+}
+
+/* --- Tracker Filters in Header --- */
+.tracker-filters {
+  display: flex;
+  gap: 4px;
+  margin-left: auto; /* Pushes to the right */
+  margin-right: 10px;
+  align-items: center;
+}
+
+.filter-icon-btn {
+  background: #333;
+  border: 1px solid #444;
+  color: #888;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.filter-icon-btn img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.filter-icon-btn:hover {
+  background: #444;
+  color: #fff;
+  border-color: #666;
+}
+
+.filter-icon-btn.active {
+  background: rgba(0, 210, 255, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 5px rgba(0, 210, 255, 0.2);
 }

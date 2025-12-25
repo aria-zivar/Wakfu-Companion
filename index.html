@@ -24,7 +24,6 @@
                         COPY
                     </button>
                 </div>
-
                 <p>Drag the file directly from your folder to start.</p>
             </div>
             
@@ -117,7 +116,6 @@
                         </div>
                         <div id="list-enemies" class="half-list"></div>
                     </div>
-
                 </div>
             </div>
 
@@ -127,10 +125,33 @@
                     <img src="./img/headers/item_tracker.png" class="header-label-icon" onerror="this.style.display='none'">
                     <span class="header-label">Item Tracker</span>
 
-                    <!-- Sort Button -->
-                    <button class="pip-btn" onclick="sortTrackerItems()" title="Sort by Profession" style="margin-left: auto; margin-right: 5px; font-size: 0.8rem; font-weight: bold;">AZ</button>
+                    <!-- NEW: Profession Filters -->
+                    <div class="tracker-filters">
+                        <button class="filter-icon-btn active" id="tf-all" onclick="setTrackerFilter('SHOW_ALL')" title="Show All">ALL</button>
+                        <button class="filter-icon-btn" id="tf-farmer" onclick="setTrackerFilter('Farmer')" title="Farmer">
+                            <img src="img/resources/farmer.png" onerror="this.style.display='none'">
+                        </button>
+                        <button class="filter-icon-btn" id="tf-fisherman" onclick="setTrackerFilter('Fisherman')" title="Fisherman">
+                            <img src="img/resources/fisherman.png" onerror="this.style.display='none'">
+                        </button>
+                        <button class="filter-icon-btn" id="tf-herbalist" onclick="setTrackerFilter('Herbalist')" title="Herbalist">
+                            <img src="img/resources/herbalist.png" onerror="this.style.display='none'">
+                        </button>
+                        <button class="filter-icon-btn" id="tf-lumberjack" onclick="setTrackerFilter('Lumberjack')" title="Lumberjack">
+                            <img src="img/resources/lumberjack.png" onerror="this.style.display='none'">
+                        </button>
+                        <button class="filter-icon-btn" id="tf-miner" onclick="setTrackerFilter('Miner')" title="Miner">
+                            <img src="img/resources/miner.png" onerror="this.style.display='none'">
+                        </button>
+                        <button class="filter-icon-btn" id="tf-trapper" onclick="setTrackerFilter('Trapper')" title="Trapper">
+                            <img src="img/resources/trapper.png" onerror="this.style.display='none'">
+                        </button>
+                    </div>
 
-                    <!-- View Toggle Button (Modified margins) -->
+                    <!-- Sort Button (Removed inline margin-left) -->
+                    <button class="pip-btn" onclick="sortTrackerItems()" title="Sort by Profession" style="font-size: 0.8rem; font-weight: bold;">↓</button>
+
+                    <!-- View Toggle Button -->
                     <button class="pip-btn" id="tracker-view-toggle" onclick="toggleTrackerView()" title="Toggle Grid/List View" style="margin-right: 5px;">☰</button>
 
                     <!-- PiP Button -->
@@ -147,8 +168,6 @@
                 
                 <div id="tracker-notifications"></div>
             </div>
-
-            
 
             <!-- 3. Chat Translator -->
             <div class="tool-panel">
@@ -190,7 +209,7 @@
     <!-- LEFT SIDEBAR FOR PROFESSIONS -->
 <div id="professions-sidebar" class="sidebar left-sidebar">
 <div class="sidebar-header">
-        <h3>Professions XP Calculator</h3>
+        <h3>Crafting Professions Calculator</h3>
         <button class="close-sidebar-btn" onclick="toggleProfSidebar()">×</button>
     </div>
     
@@ -395,25 +414,19 @@
         <div class="file-info">
             <!-- LIVE Indicator -->
             <span id="live-indicator" style="margin-right: 2px; font-size:0.8em; color:#0f0; display:none;">●</span>
-
             <!-- Tracking Label -->
             <span style="color:var(--accent); font-weight:bold;">Tracking: </span> 
             <span id="active-filename" style="margin-left: 5px; color:#aaa;">No File</span>
-
-                        <!-- Separator -->
             <span class="footer-separator">|</span>
-
             <!-- Daily Timer -->
             <span id="daily-timer-display" title="Time remaining until Paris Midnight">
                 <span style="color:var(--accent); font-weight:bold;">Daily Reset in: </span>
                 <span id="daily-val" style="color: #fff; font-family: monospace;">--:--</span>
             </span>
-
-            <!-- Separator -->
             <span class="footer-separator">|</span>
-
             <!-- Sidebar Toggles at Footer -->
-            <span class="footer-btn" onclick="toggleProfSidebar()" style="margin-right: 15px;">PROFESSIONS</span>
+            <span class="footer-btn" onclick="toggleProfSidebar()">PROFESSIONS</span>
+            <span class="footer-separator">|</span>
             <span class="footer-btn" onclick="toggleSidebar()">INFO & ROUTES</span>
         </div>
     </div>
