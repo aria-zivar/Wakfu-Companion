@@ -1,472 +1,988 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nexus Wakfu Companion</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-</head>
-<body>
-
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  </head>
+  <body>
     <div class="main-content">
-        
-        <!-- Setup (Overlay) -->
-        <div id="setup-panel">
-            <div class="drop-zone" id="drop-zone">
-                <h3>DRAG 'wakfu_chat.log' HERE</h3>
-                <p style="color:#aaa; margin-bottom:5px;">Default Path (Copy & Paste in File Explorer):</p>
-                
-                <!-- Path Container with Copy Button -->
-                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; background: rgba(0,0,0,0.3); border: 1px solid #444; padding: 10px 15px; margin: 10px auto 20px auto; width: fit-content; border-radius: 6px;">
-                    <code id="log-path" style="font-family: monospace; color: #00e1ff; font-size: 1rem; user-select: all;">%AppData%\zaap\gamesLogs\wakfu\logs\</code>
-                    <button id="copy-path-btn" style="background: #444; border: 1px solid #666; color: white; cursor: pointer; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; transition: all 0.2s;">
-                        COPY
-                    </button>
-                </div>
-                <p>Drag the file directly from your folder to start.</p>
-            </div>
-            
-            <!-- Reconnect Container (Updated Design) -->
-            <div id="reconnect-container" style="display:none; background: #141414; padding: 40px; border: 2px solid var(--accent, #00e1ff); border-radius: 10px; box-shadow: 0 0 40px rgba(0,0,0,1); text-align:center; margin: 100px auto; max-width: 500px; position: relative; z-index: 100;">
-                <p style="font-size: 1.1em; color: #eee; margin-bottom: 10px;">Previous file found:</p>
-                <h3 id="prev-filename" style="color:var(--accent, #00e1ff); margin: 0 0 25px 0; font-size: 1.5em; word-break: break-all;">wakfu-chat.log</h3>
-                
-                <button id="reconnect-btn" class="add-track-btn" style="padding: 12px 30px; font-size: 1.2em; cursor: pointer; margin-bottom: 15px; width: 100%;">RECONNECT</button>
-                
-                <p style="font-size:0.85em; color:#aaa; margin-bottom: 25px;">(Browser requires confirmation)</p>
-                
-                <div style="border-top: 1px solid #333; padding-top: 15px;">
-                    <button id="new-file-btn" style="background:none; border:none; color:#888; cursor:pointer; text-decoration:underline; font-size: 0.9em;">Select different file</button>
-                </div>
-            </div>
+      <!-- Setup (Overlay) -->
+      <div id="setup-panel">
+        <div class="drop-zone" id="drop-zone">
+          <h3>DRAG 'wakfu_chat.log' HERE</h3>
+          <p style="color: #aaa; margin-bottom: 5px">
+            Default Path (Copy & Paste in File Explorer):
+          </p>
+
+          <!-- Path Container with Copy Button -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 10px;
+              background: rgba(0, 0, 0, 0.3);
+              border: 1px solid #444;
+              padding: 10px 15px;
+              margin: 10px auto 20px auto;
+              width: fit-content;
+              border-radius: 6px;
+            "
+          >
+            <code
+              id="log-path"
+              style="
+                font-family: monospace;
+                color: #00e1ff;
+                font-size: 1rem;
+                user-select: all;
+              "
+              >%AppData%\zaap\gamesLogs\wakfu\logs\</code
+            >
+            <button
+              id="copy-path-btn"
+              style="
+                background: #444;
+                border: 1px solid #666;
+                color: white;
+                cursor: pointer;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 0.8rem;
+                transition: all 0.2s;
+              "
+            >
+              COPY
+            </button>
+          </div>
+          <p>Drag the file directly from your folder to start.</p>
         </div>
 
-        <!-- 3-Column Layout -->
-        <div class="panels-container">
-            
-            <!-- 1. Combat Meter (Damage, Healing & Armor) -->
-            <div class="tool-panel">
-                <div class="panel-header tab-header">
-                    <div class="meter-tab active" id="tab-damage" onclick="switchMeterMode('damage')">
-                        <img src="./img/headers/damage.png" class="tab-icon" onerror="this.style.display='none'">
-                        DAMAGE
-                    </div>
-                    <div class="meter-tab" id="tab-healing" onclick="switchMeterMode('healing')">
-                        <img src="./img/headers/healing.png" class="tab-icon" onerror="this.style.display='none'">
-                        HEALING
-                    </div>
-                    <div class="meter-tab" id="tab-armor" onclick="switchMeterMode('armor')">
-                        <img src="./img/headers/armor.png" class="tab-icon" onerror="this.style.display='none'">
-                        ARMOR
-                    </div>
-                    <!-- PiP Button -->
-    <button class="pip-btn" onclick="togglePiP('meter-split-container', 'Combat Meter')" title="Picture in Picture">⧉</button>
-                </div>
-                
-                <!-- Controls Area -->
-                <div class="dm-controls-bar">
-                    <div class="controls-group">
-                        <button class="toggle-btn" id="autoResetToggle">
-                            <span id="autoResetText">Auto Reset</span>
-                        </button>
+        <!-- Reconnect Container (Updated Design) -->
+        <div
+          id="reconnect-container"
+          style="
+            display: none;
+            background: #141414;
+            padding: 40px;
+            border: 2px solid var(--accent, #00e1ff);
+            border-radius: 10px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 1);
+            text-align: center;
+            margin: 100px auto;
+            max-width: 500px;
+            position: relative;
+            z-index: 100;
+          "
+        >
+          <p style="font-size: 1.1em; color: #eee; margin-bottom: 10px">
+            Previous file found:
+          </p>
+          <h3
+            id="prev-filename"
+            style="
+              color: var(--accent, #00e1ff);
+              margin: 0 0 25px 0;
+              font-size: 1.5em;
+              word-break: break-all;
+            "
+          >
+            wakfu-chat.log
+          </h3>
 
-                        <div id="history-nav" class="history-container">
-                            <button class="hist-btn active" id="btn-live" onclick="viewHistory('live')" title="Current Fight">LIVE</button>
-                            <span class="hist-sep">|</span>
-                            <button class="hist-btn disabled" id="btn-hist-0" onclick="viewHistory(0)">1</button>
-                            <button class="hist-btn disabled" id="btn-hist-1" onclick="viewHistory(1)">2</button>
-                            <button class="hist-btn disabled" id="btn-hist-2" onclick="viewHistory(2)">3</button>
-                            <button class="hist-btn disabled" id="btn-hist-3" onclick="viewHistory(3)">4</button>
-                            <button class="hist-btn disabled" id="btn-hist-4" onclick="viewHistory(4)">5</button>
-                        </div>
-                        
-                        <div style="flex-grow: 1;"></div>
-                        <button class="export-btn" id="discordBtn" title="Copy Report for Discord" onclick="exportToDiscord()">
-                            📋
-                        </button>
-                        <button class="reset-btn" id="resetBtn">RESET</button>
-                    </div>
-                </div>
+          <button
+            id="reconnect-btn"
+            class="add-track-btn"
+            style="
+              padding: 12px 30px;
+              font-size: 1.2em;
+              cursor: pointer;
+              margin-bottom: 15px;
+              width: 100%;
+            "
+          >
+            RECONNECT
+          </button>
 
-                <!-- SPLIT CONTAINER FOR ALLIES / ENEMIES -->
-                <div id="meter-split-container">
-                    
-                    <!-- Allies Section -->
-                    <div class="meter-half">
-                        <div class="half-header header-allies">
-                            <div class="header-title-group">
-                                <img src="./img/headers/allies.png" class="header-icon" onerror="this.style.display='none'">
-                                <span>ALLIES</span>
-                            </div>
-                            <!-- Independent Expand/Collapse Buttons -->
-                            <div class="header-btn-group">
-                                <button class="mini-header-btn" onclick="modifyExpansion('allies', 'expand')">+</button>
-                                <button class="mini-header-btn" onclick="modifyExpansion('allies', 'collapse')">-</button>
-                            </div>
-                            <span id="allies-total-val" class="header-total">0</span>
-                            <span class="header-percent"></span>
-                        </div>
-                        <div id="list-allies" class="half-list"></div>
-                    </div>
+          <p style="font-size: 0.85em; color: #aaa; margin-bottom: 25px">
+            (Browser requires confirmation)
+          </p>
 
-                    <!-- Separator Line -->
-                    <div class="meter-separator"></div>
-
-                    <!-- Enemies Section -->
-                    <div class="meter-half">
-                        <div class="half-header header-enemies">
-                            <div class="header-title-group">
-                                <img src="./img/headers/enemies.png" class="header-icon" onerror="this.style.display='none'">
-                                <span>ENEMIES</span>
-                            </div>
-                            <!-- Independent Expand/Collapse Buttons -->
-                            <div class="header-btn-group">
-                                <button class="mini-header-btn" onclick="modifyExpansion('enemies', 'expand')">+</button>
-                                <button class="mini-header-btn" onclick="modifyExpansion('enemies', 'collapse')">-</button>
-                            </div>
-                            <span id="enemies-total-val" class="header-total">0</span>
-                            <span class="header-percent"></span>
-                        </div>
-                        <div id="list-enemies" class="half-list"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 2. Item Tracker -->
-            <div class="tool-panel">
-                <div class="panel-header">
-                    <img src="./img/headers/item_tracker.png" class="header-label-icon" onerror="this.style.display='none'">
-                    <span class="header-label">Item Tracker</span>
-
-                    <!-- NEW: Profession Filters -->
-                    <div class="tracker-filters">
-                        <button class="filter-icon-btn active" id="tf-all" onclick="setTrackerFilter('SHOW_ALL')" title="Show All">ALL</button>
-                        <button class="filter-icon-btn" id="tf-farmer" onclick="setTrackerFilter('Farmer')" title="Farmer">
-                            <img src="img/resources/farmer.png" onerror="this.style.display='none'">
-                        </button>
-                        <button class="filter-icon-btn" id="tf-fisherman" onclick="setTrackerFilter('Fisherman')" title="Fisherman">
-                            <img src="img/resources/fisherman.png" onerror="this.style.display='none'">
-                        </button>
-                        <button class="filter-icon-btn" id="tf-herbalist" onclick="setTrackerFilter('Herbalist')" title="Herbalist">
-                            <img src="img/resources/herbalist.png" onerror="this.style.display='none'">
-                        </button>
-                        <button class="filter-icon-btn" id="tf-lumberjack" onclick="setTrackerFilter('Lumberjack')" title="Lumberjack">
-                            <img src="img/resources/lumberjack.png" onerror="this.style.display='none'">
-                        </button>
-                        <button class="filter-icon-btn" id="tf-miner" onclick="setTrackerFilter('Miner')" title="Miner">
-                            <img src="img/resources/miner.png" onerror="this.style.display='none'">
-                        </button>
-                        <button class="filter-icon-btn" id="tf-trapper" onclick="setTrackerFilter('Trapper')" title="Trapper">
-                            <img src="img/resources/trapper.png" onerror="this.style.display='none'">
-                        </button>
-                    </div>
-
-                    <!-- Sort Button (Removed inline margin-left) -->
-                    <button class="pip-btn" onclick="sortTrackerItems()" title="Sort by Profession" style="font-size: 0.8rem; font-weight: bold;">↓</button>
-
-                    <!-- View Toggle Button -->
-                    <button class="pip-btn" id="tracker-view-toggle" onclick="toggleTrackerView()" title="Toggle Grid/List View" style="margin-right: 5px;">☰</button>
-
-                    <!-- PiP Button -->
-                    <button class="pip-btn" onclick="togglePiP('tracker-list', 'Item Tracker')" title="Picture in Picture">⧉</button>
-                </div>
-                <div class="tracker-controls">
-                    <input type="text" id="item-input" list="item-datalist" class="tracker-select" placeholder="Search item..." autocomplete="off">
-                    <datalist id="item-datalist"></datalist>
-                    <button class="add-track-btn" onclick="addTrackedItem()">Add</button>
-                </div>
-                <div id="tracker-list">
-                    <div class="empty-state">Add items to track...</div>
-                </div>
-                
-                <div id="tracker-notifications"></div>
-            </div>
-
-            <!-- 3. Chat Translator -->
-            <div class="tool-panel">
-                <div class="panel-header">
-                    <img src="./img/headers/chat.png" class="header-label-icon" onerror="this.style.display='none'">
-                    <span class="header-label">Chat & Translator</span>
-                    <button id="clearChatBtn" style="padding:4px 8px; font-size:0.7em; background:#444; color:#fff; border:none; cursor:pointer; margin-left: auto;">Clear</button>
-                    <!-- PiP Button -->
-                    <button class="pip-btn" onclick="togglePiP('chat-list', 'Chat')" title="Picture in Picture">⧉</button>
-                </div>
-                
-                <div class="trans-toolbar">
-                    <span class="trans-label">Trans:</span>
-                    <button class="lang-btn active" id="btnPT" onclick="toggleLang('pt')">PT</button>
-                    <button class="lang-btn active" id="btnFR" onclick="toggleLang('fr')">FR</button>
-                    <button class="lang-btn" id="btnES" onclick="toggleLang('es')">ES</button>
-                    <button class="lang-btn" id="btnOther" onclick="toggleLang('others')">OTHERS</button>
-                    <div style="flex-grow:1"></div>
-                    <button class="lang-btn master-on" id="btnMaster" onclick="toggleMasterSwitch()">ENABLED</button>
-                </div>
-
-                <div id="chat-list">
-                    <div class="empty-state">Waiting for chat logs...</div>
-                </div>
-
-                <div class="chat-filters">
-                    <button class="filter-btn active" id="filterALL" onclick="setChatFilter('all')">ALL</button>
-                    <button class="filter-btn" id="filterGROUP" onclick="setChatFilter('group')">GROUP</button>
-                    <button class="filter-btn" id="filterGUILD" onclick="setChatFilter('guild')">GUILD</button>
-                    <button class="filter-btn" id="filterRECRUIT" onclick="setChatFilter('recruitment')">RECRUIT</button>
-                    <button class="filter-btn" id="filterCOMM" onclick="setChatFilter('community')">COMM</button>
-                    <button class="filter-btn" id="filterTRADE" onclick="setChatFilter('trade')">TRADE</button>
-                </div>
-            </div>
-
+          <div style="border-top: 1px solid #333; padding-top: 15px">
+            <button
+              id="new-file-btn"
+              style="
+                background: none;
+                border: none;
+                color: #888;
+                cursor: pointer;
+                text-decoration: underline;
+                font-size: 0.9em;
+              "
+            >
+              Select different file
+            </button>
+          </div>
         </div>
+      </div>
+
+      <!-- 3-Column Layout -->
+      <div class="panels-container">
+        <!-- 1. Combat Meter (Damage, Healing & Armor) -->
+        <div class="tool-panel">
+          <div class="panel-header tab-header">
+            <div
+              class="meter-tab active"
+              id="tab-damage"
+              onclick="switchMeterMode('damage')"
+            >
+              <img
+                src="./img/headers/damage.png"
+                class="tab-icon"
+                onerror="this.style.display='none'"
+              />
+              DAMAGE
+            </div>
+            <div
+              class="meter-tab"
+              id="tab-healing"
+              onclick="switchMeterMode('healing')"
+            >
+              <img
+                src="./img/headers/healing.png"
+                class="tab-icon"
+                onerror="this.style.display='none'"
+              />
+              HEALING
+            </div>
+            <div
+              class="meter-tab"
+              id="tab-armor"
+              onclick="switchMeterMode('armor')"
+            >
+              <img
+                src="./img/headers/armor.png"
+                class="tab-icon"
+                onerror="this.style.display='none'"
+              />
+              ARMOR
+            </div>
+            <!-- PiP Button -->
+            <button
+              class="pip-btn"
+              onclick="togglePiP('meter-split-container', 'Combat Meter')"
+              title="Picture in Picture"
+            >
+              ⧉
+            </button>
+          </div>
+
+          <!-- Controls Area -->
+          <div class="dm-controls-bar">
+            <div class="controls-group">
+              <button class="toggle-btn" id="autoResetToggle">
+                <span id="autoResetText">Auto Reset</span>
+              </button>
+
+              <div id="history-nav" class="history-container">
+                <button
+                  class="hist-btn active"
+                  id="btn-live"
+                  onclick="viewHistory('live')"
+                  title="Current Fight"
+                >
+                  LIVE
+                </button>
+                <span class="hist-sep">|</span>
+                <button
+                  class="hist-btn disabled"
+                  id="btn-hist-0"
+                  onclick="viewHistory(0)"
+                >
+                  1
+                </button>
+                <button
+                  class="hist-btn disabled"
+                  id="btn-hist-1"
+                  onclick="viewHistory(1)"
+                >
+                  2
+                </button>
+                <button
+                  class="hist-btn disabled"
+                  id="btn-hist-2"
+                  onclick="viewHistory(2)"
+                >
+                  3
+                </button>
+                <button
+                  class="hist-btn disabled"
+                  id="btn-hist-3"
+                  onclick="viewHistory(3)"
+                >
+                  4
+                </button>
+                <button
+                  class="hist-btn disabled"
+                  id="btn-hist-4"
+                  onclick="viewHistory(4)"
+                >
+                  5
+                </button>
+              </div>
+
+              <div style="flex-grow: 1"></div>
+              <button
+                class="export-btn"
+                id="discordBtn"
+                title="Copy Report for Discord"
+                onclick="exportToDiscord()"
+              >
+                📋
+              </button>
+              <button class="reset-btn" id="resetBtn">RESET</button>
+            </div>
+          </div>
+
+          <!-- SPLIT CONTAINER FOR ALLIES / ENEMIES -->
+          <div id="meter-split-container">
+            <!-- Allies Section -->
+            <div class="meter-half">
+              <div class="half-header header-allies">
+                <div class="header-title-group">
+                  <img
+                    src="./img/headers/allies.png"
+                    class="header-icon"
+                    onerror="this.style.display='none'"
+                  />
+                  <span>ALLIES</span>
+                </div>
+                <!-- Independent Expand/Collapse Buttons -->
+                <div class="header-btn-group">
+                  <button
+                    class="mini-header-btn"
+                    onclick="modifyExpansion('allies', 'expand')"
+                  >
+                    +
+                  </button>
+                  <button
+                    class="mini-header-btn"
+                    onclick="modifyExpansion('allies', 'collapse')"
+                  >
+                    -
+                  </button>
+                </div>
+                <span id="allies-total-val" class="header-total">0</span>
+                <span class="header-percent"></span>
+              </div>
+              <div id="list-allies" class="half-list"></div>
+            </div>
+
+            <!-- Separator Line -->
+            <div class="meter-separator"></div>
+
+            <!-- Enemies Section -->
+            <div class="meter-half">
+              <div class="half-header header-enemies">
+                <div class="header-title-group">
+                  <img
+                    src="./img/headers/enemies.png"
+                    class="header-icon"
+                    onerror="this.style.display='none'"
+                  />
+                  <span>ENEMIES</span>
+                </div>
+                <!-- Independent Expand/Collapse Buttons -->
+                <div class="header-btn-group">
+                  <button
+                    class="mini-header-btn"
+                    onclick="modifyExpansion('enemies', 'expand')"
+                  >
+                    +
+                  </button>
+                  <button
+                    class="mini-header-btn"
+                    onclick="modifyExpansion('enemies', 'collapse')"
+                  >
+                    -
+                  </button>
+                </div>
+                <span id="enemies-total-val" class="header-total">0</span>
+                <span class="header-percent"></span>
+              </div>
+              <div id="list-enemies" class="half-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Item Tracker -->
+        <div class="tool-panel">
+          <div class="panel-header">
+            <img
+              src="./img/headers/item_tracker.png"
+              class="header-label-icon"
+              onerror="this.style.display='none'"
+            />
+            <span class="header-label">Item Tracker</span>
+
+            <!-- NEW: Profession Filters -->
+            <div class="tracker-filters">
+              <button
+                class="filter-icon-btn active"
+                id="tf-all"
+                onclick="setTrackerFilter('SHOW_ALL')"
+                title="Show All"
+              >
+                ALL
+              </button>
+              <button
+                class="filter-icon-btn"
+                id="tf-farmer"
+                onclick="setTrackerFilter('Farmer')"
+                title="Farmer"
+              >
+                <img
+                  src="img/resources/farmer.png"
+                  onerror="this.style.display='none'"
+                />
+              </button>
+              <button
+                class="filter-icon-btn"
+                id="tf-fisherman"
+                onclick="setTrackerFilter('Fisherman')"
+                title="Fisherman"
+              >
+                <img
+                  src="img/resources/fisherman.png"
+                  onerror="this.style.display='none'"
+                />
+              </button>
+              <button
+                class="filter-icon-btn"
+                id="tf-herbalist"
+                onclick="setTrackerFilter('Herbalist')"
+                title="Herbalist"
+              >
+                <img
+                  src="img/resources/herbalist.png"
+                  onerror="this.style.display='none'"
+                />
+              </button>
+              <button
+                class="filter-icon-btn"
+                id="tf-lumberjack"
+                onclick="setTrackerFilter('Lumberjack')"
+                title="Lumberjack"
+              >
+                <img
+                  src="img/resources/lumberjack.png"
+                  onerror="this.style.display='none'"
+                />
+              </button>
+              <button
+                class="filter-icon-btn"
+                id="tf-miner"
+                onclick="setTrackerFilter('Miner')"
+                title="Miner"
+              >
+                <img
+                  src="img/resources/miner.png"
+                  onerror="this.style.display='none'"
+                />
+              </button>
+              <button
+                class="filter-icon-btn"
+                id="tf-trapper"
+                onclick="setTrackerFilter('Trapper')"
+                title="Trapper"
+              >
+                <img
+                  src="img/resources/trapper.png"
+                  onerror="this.style.display='none'"
+                />
+              </button>
+            </div>
+
+            <!-- Sort Button (Removed inline margin-left) -->
+            <button
+              class="pip-btn"
+              onclick="sortTrackerItems()"
+              title="Sort by Profession"
+              style="font-size: 0.8rem; font-weight: bold"
+            >
+              ↓
+            </button>
+
+            <!-- View Toggle Button -->
+            <button
+              class="pip-btn"
+              id="tracker-view-toggle"
+              onclick="toggleTrackerView()"
+              title="Toggle Grid/List View"
+              style="margin-right: 5px"
+            >
+              ☰
+            </button>
+
+            <!-- PiP Button -->
+            <button
+              class="pip-btn"
+              onclick="togglePiP('tracker-list', 'Item Tracker')"
+              title="Picture in Picture"
+            >
+              ⧉
+            </button>
+          </div>
+          <div class="tracker-controls">
+            <input
+              type="text"
+              id="item-input"
+              list="item-datalist"
+              class="tracker-select"
+              placeholder="Search item..."
+              autocomplete="off"
+            />
+            <datalist id="item-datalist"></datalist>
+            <button class="add-track-btn" onclick="addTrackedItem()">
+              Add
+            </button>
+          </div>
+          <div id="tracker-list">
+            <div class="empty-state">Add items to track...</div>
+          </div>
+
+          <div id="tracker-notifications"></div>
+        </div>
+
+        <!-- 3. Chat Translator -->
+        <div class="tool-panel">
+          <div class="panel-header">
+            <img
+              src="./img/headers/chat.png"
+              class="header-label-icon"
+              onerror="this.style.display='none'"
+            />
+            <span class="header-label">Chat & Translator</span>
+            <button
+              id="clearChatBtn"
+              style="
+                padding: 4px 8px;
+                font-size: 0.7em;
+                background: #444;
+                color: #fff;
+                border: none;
+                cursor: pointer;
+                margin-left: auto;
+              "
+            >
+              Clear
+            </button>
+            <!-- PiP Button -->
+            <button
+              class="pip-btn"
+              onclick="togglePiP('chat-list', 'Chat')"
+              title="Picture in Picture"
+            >
+              ⧉
+            </button>
+          </div>
+
+          <div class="trans-toolbar">
+            <span class="trans-label">Trans:</span>
+            <button
+              class="lang-btn active"
+              id="btnPT"
+              onclick="toggleLang('pt')"
+            >
+              PT
+            </button>
+            <button
+              class="lang-btn active"
+              id="btnFR"
+              onclick="toggleLang('fr')"
+            >
+              FR
+            </button>
+            <button class="lang-btn" id="btnES" onclick="toggleLang('es')">
+              ES
+            </button>
+            <button
+              class="lang-btn"
+              id="btnOther"
+              onclick="toggleLang('others')"
+            >
+              OTHERS
+            </button>
+            <div style="flex-grow: 1"></div>
+            <button
+              class="lang-btn master-on"
+              id="btnMaster"
+              onclick="toggleMasterSwitch()"
+            >
+              ENABLED
+            </button>
+          </div>
+
+          <div id="chat-list">
+            <div class="empty-state">Waiting for chat logs...</div>
+          </div>
+
+          <div class="chat-filters">
+            <button
+              class="filter-btn active"
+              id="filterALL"
+              onclick="setChatFilter('all')"
+            >
+              ALL
+            </button>
+            <button
+              class="filter-btn"
+              id="filterGROUP"
+              onclick="setChatFilter('group')"
+            >
+              GROUP
+            </button>
+            <button
+              class="filter-btn"
+              id="filterGUILD"
+              onclick="setChatFilter('guild')"
+            >
+              GUILD
+            </button>
+            <button
+              class="filter-btn"
+              id="filterRECRUIT"
+              onclick="setChatFilter('recruitment')"
+            >
+              RECRUIT
+            </button>
+            <button
+              class="filter-btn"
+              id="filterCOMM"
+              onclick="setChatFilter('community')"
+            >
+              COMM
+            </button>
+            <button
+              class="filter-btn"
+              id="filterTRADE"
+              onclick="setChatFilter('trade')"
+            >
+              TRADE
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- LEFT SIDEBAR FOR PROFESSIONS -->
-<div id="professions-sidebar" class="sidebar left-sidebar">
-<div class="sidebar-header">
+    <div id="professions-sidebar" class="sidebar left-sidebar">
+      <div class="sidebar-header">
         <h3>Crafting Professions Calculator</h3>
-        <button class="close-sidebar-btn" onclick="toggleProfSidebar()">×</button>
-    </div>
-    
-    <div class="sidebar-content">
-             
-             <!-- Selector with Dynamic Icon -->
-             <div class="prof-select-group prof-header-group">
-                 <!-- Image loads blank, src filled by JS -->
-                 <img id="prof-logo-img" class="selected-job-icon" src="" alt="Job Icon">
-                 
-                 <select id="profession-select" class="prof-select" onchange="onProfessionChange()">
-                     <option value="" disabled selected>Select Profession...</option>
-                 </select>
-             </div>
+        <button class="close-sidebar-btn" onclick="toggleProfSidebar()">
+          ×
+        </button>
+      </div>
 
-             <!-- Inputs -->
-             <div class="prof-levels">
-                 <div class="prof-level-input-group" style="flex:0.8;">
-                     <label class="prof-level-label">Base XP</label>
-                     <input type="number" id="prof-base-exp" class="prof-level-input" min="1">
-                 </div>
-                 <div class="prof-level-input-group">
-                     <label class="prof-level-label">Start</label>
-                     <input type="number" id="prof-current-lvl" class="prof-level-input" min="0" max="159" value="0">
-                 </div>
-                 <div class="prof-level-input-group">
-                     <label class="prof-level-label">Target</label>
-                     <input type="number" id="prof-target-lvl" class="prof-level-input" min="1" max="160" value="20">
-                 </div>
-             </div>
+      <div class="sidebar-content">
+        <!-- Selector with Dynamic Icon -->
+        <div class="prof-select-group prof-header-group">
+          <!-- Image loads blank, src filled by JS -->
+          <img
+            id="prof-logo-img"
+            class="selected-job-icon"
+            src=""
+            alt="Job Icon"
+          />
 
-             <!-- Calculate Button -->
-             <button class="prof-calc-btn" onclick="calculateProfessionResources()">Calculate Needs</button>
-
-             <!-- Results -->
-             <div id="profession-results-list" class="prof-results">
-                 <div class="empty-state" style="font-size: 0.9em; padding: 20px;">Select levels to see required resources.</div>
-             </div>
-
+          <select
+            id="profession-select"
+            class="prof-select"
+            onchange="onProfessionChange()"
+          >
+            <option value="" disabled selected>Select Profession...</option>
+          </select>
         </div>
-</div>
+
+        <!-- Inputs -->
+        <div class="prof-levels">
+          <div class="prof-level-input-group" style="flex: 0.8">
+            <label class="prof-level-label">Base XP</label>
+            <input
+              type="number"
+              id="prof-base-exp"
+              class="prof-level-input"
+              min="1"
+            />
+          </div>
+          <div class="prof-level-input-group">
+            <label class="prof-level-label">Start</label>
+            <input
+              type="number"
+              id="prof-current-lvl"
+              class="prof-level-input"
+              min="0"
+              max="159"
+              value="0"
+            />
+          </div>
+          <div class="prof-level-input-group">
+            <label class="prof-level-label">Target</label>
+            <input
+              type="number"
+              id="prof-target-lvl"
+              class="prof-level-input"
+              min="1"
+              max="160"
+              value="20"
+            />
+          </div>
+        </div>
+
+        <!-- Calculate Button -->
+        <button class="prof-calc-btn" onclick="calculateProfessionResources()">
+          Calculate Needs
+        </button>
+
+        <!-- Results -->
+        <div id="profession-results-list" class="prof-results">
+          <div class="empty-state" style="font-size: 0.9em; padding: 20px">
+            Select levels to see required resources.
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- SIDEBAR FOR MISSIONS & RELICS -->
     <div id="info-sidebar" class="sidebar">
-        
-        <div class="sidebar-header">
-            <h3>Quick Info</h3>
-            <button class="close-sidebar-btn" onclick="toggleSidebar()">×</button>
-        </div>
-        
-        <div class="sidebar-content">
-            
-            <!-- Section 1: Daily Missions -->
-            <div class="sidebar-section" id="sec-daily">
-                <h4 onclick="toggleSidebarSection('sec-daily')">
-                <div class="header-left">
-                <img src="img/headers/daily_missions.png" class="header-label-icon" onerror="this.style.display='none'">
-                Daily Missions 
-                </div>
-                    <span class="section-arrow">▼</span>
-                </h4>
-                
-                <div class="section-content">
-                    <div class="route-box">
-                        <div class="route-title">Full Route</div>
-                        <div class="route-steps">
-                            <span class="route-step">Guild</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step">Heavenbag</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step">Neo HQ</span>
-                            
-                            <div style="flex-basis: 100%; height: 0;"></div>
+      <div class="sidebar-header">
+        <h3>Quick Info</h3>
+        <button class="close-sidebar-btn" onclick="toggleSidebar()">×</button>
+      </div>
 
-                            <span class="route-step" data-tooltip="Lv. 6-20&#10;Lv. 21-35">Astrub Sewers</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step" data-tooltip="Lv. 36-50&#10;Lv. 51-65&#10;Lv. 216-230">Ereboria</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step" data-tooltip="Lv. 66-80&#10;Lv. 126-140&#10;Lv. 156-170&#10;Lv. 186-200">Bonta</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step" data-tooltip="Lv. 81-95&#10;Lv. 141-155">Brakmar</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step" data-tooltip="Lv. 96-110&#10;Lv. 111-125">Ice Floe</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step" data-tooltip="Lv. 171-185">Moon</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step" data-tooltip="Lv. 201-215">Osamosa</span>
-                        </div>
-                    </div>
+      <div class="sidebar-content">
+        <!-- Section 1: Daily Missions -->
+        <div class="sidebar-section" id="sec-daily">
+          <h4 onclick="toggleSidebarSection('sec-daily')">
+            <div class="header-left">
+              <img
+                src="img/headers/daily_missions.png"
+                class="header-label-icon"
+                onerror="this.style.display='none'"
+              />
+              Daily Missions
+            </div>
+            <span class="section-arrow">▼</span>
+          </h4>
 
-                    <div class="route-box">
-                        <div class="route-title">Short Route</div>
-                        <div class="route-steps">
-                            <span class="route-step">Guild</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step">Heavenbag</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step">Neo HQ</span>
-                            
-                            <div style="flex-basis: 100%; height: 0;"></div>
+          <div class="section-content">
+            <div class="route-box">
+              <div class="route-title">Full Route</div>
+              <div class="route-steps">
+                <span class="route-step">Guild</span>
+                <span class="route-arrow">→</span>
+                <span class="route-step">Heavenbag</span>
+                <span class="route-arrow">→</span>
+                <span class="route-step">Neo HQ</span>
 
-                            <span class="route-step" data-tooltip="Lv. 36-50&#10;Lv. 96-110&#10;Lv. 156-170">Amakna</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step" data-tooltip="Lv. 111-125">Ice Floe</span>
-                            <span class="route-arrow">→</span>
-                            <span class="route-step" data-tooltip="Lv. 216-230">Ereboria</span>
-                        </div>
-                    </div>
-                </div>
+                <div style="flex-basis: 100%; height: 0"></div>
+
+                <span class="route-step" data-tooltip="Lv. 6-20&#10;Lv. 21-35"
+                  >Astrub Sewers</span
+                >
+                <span class="route-arrow">→</span>
+                <span
+                  class="route-step"
+                  data-tooltip="Lv. 36-50&#10;Lv. 51-65&#10;Lv. 216-230"
+                  >Ereboria</span
+                >
+                <span class="route-arrow">→</span>
+                <span
+                  class="route-step"
+                  data-tooltip="Lv. 66-80&#10;Lv. 126-140&#10;Lv. 156-170&#10;Lv. 186-200"
+                  >Bonta</span
+                >
+                <span class="route-arrow">→</span>
+                <span
+                  class="route-step"
+                  data-tooltip="Lv. 81-95&#10;Lv. 141-155"
+                  >Brakmar</span
+                >
+                <span class="route-arrow">→</span>
+                <span
+                  class="route-step"
+                  data-tooltip="Lv. 96-110&#10;Lv. 111-125"
+                  >Ice Floe</span
+                >
+                <span class="route-arrow">→</span>
+                <span class="route-step" data-tooltip="Lv. 171-185">Moon</span>
+                <span class="route-arrow">→</span>
+                <span class="route-step" data-tooltip="Lv. 201-215"
+                  >Osamosa</span
+                >
+              </div>
             </div>
 
-            <!-- Section 2: Relics Table -->
-            <div class="sidebar-section" id="sec-relics">
-    <h4 onclick="toggleSidebarSection('sec-relics')">
-        <div class="header-left">
-            <img src="img/headers/relic_fragments.png" class="header-label-icon" onerror="this.style.display='none'">
-            Relic Fragments 
-        </div>
-        <span class="section-arrow">▼</span>
-    </h4>
-                
-                <div class="section-content">
-                    <table class="info-table">
-                        <thead>
-                            <tr>
-                                <th>Relic</th>
-                                <th>Type</th>
-                                <th>Qty</th>
-                                <th>Location</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Koko's Boots</td>
-                                <td>Imperfect</td>
-                                <td>700</td>
-                                <td>Ereboria</td>
-                            </tr>
-                            <tr>
-                                <td>Gelano</td>
-                                <td>Solid</td>
-                                <td>800</td>
-                                <td>Bilbyza</td>
-                            </tr>
-                            <tr>
-                                <td>Kel'Dwa Ring</td>
-                                <td>Durable</td>
-                                <td>1000</td>
-                                <td>Wild Beach</td>
-                            </tr>
-                            <tr>
-                                <td>Dazzling Signet</td>
-                                <td>Exquisite</td>
-                                <td>1000</td>
-                                <td>Amakna</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <div class="route-box">
+              <div class="route-title">Short Route</div>
+              <div class="route-steps">
+                <span class="route-step">Guild</span>
+                <span class="route-arrow">→</span>
+                <span class="route-step">Heavenbag</span>
+                <span class="route-arrow">→</span>
+                <span class="route-step">Neo HQ</span>
 
-            <!-- Section 3: Dungeon Forecast -->
-<div class="sidebar-section" id="sec-forecast">
-    <h4 onclick="toggleSidebarSection('sec-forecast')">
-        <div class="header-left">
-            <img src="img/headers/dungeon_forecast.png" class="header-label-icon" onerror="this.style.display='none'">
-            Dungeon Forecast 
-        </div>
-        <span class="section-arrow">▼</span>
-    </h4>
-    
-    <div class="section-content">
-        <div class="forecast-main-container">
-            <!-- This part stays at the top -->
-            <div id="forecast-header-sticky"></div>
-            
-            <!-- This part scrolls -->
-            <div id="forecast-list-scrollable">
-                <div style="text-align:center; padding:20px; color:#888;">Loading...</div>
+                <div style="flex-basis: 100%; height: 0"></div>
+
+                <span
+                  class="route-step"
+                  data-tooltip="Lv. 36-50&#10;Lv. 96-110&#10;Lv. 156-170"
+                  >Amakna</span
+                >
+                <span class="route-arrow">→</span>
+                <span class="route-step" data-tooltip="Lv. 111-125"
+                  >Ice Floe</span
+                >
+                <span class="route-arrow">→</span>
+                <span class="route-step" data-tooltip="Lv. 216-230"
+                  >Ereboria</span
+                >
+              </div>
             </div>
+          </div>
         </div>
 
-        <div style="margin-top: 8px; text-align: center; font-size: 0.7em; color: #666; font-style: italic;">
-            Using data of Narakia et Vicky Zweistein
+        <!-- Section 2: Relics Table -->
+        <div class="sidebar-section" id="sec-relics">
+          <h4 onclick="toggleSidebarSection('sec-relics')">
+            <div class="header-left">
+              <img
+                src="img/headers/relic_fragments.png"
+                class="header-label-icon"
+                onerror="this.style.display='none'"
+              />
+              Relic Fragments
+            </div>
+            <span class="section-arrow">▼</span>
+          </h4>
+
+          <div class="section-content">
+            <table class="info-table">
+              <thead>
+                <tr>
+                  <th>Relic</th>
+                  <th>Type</th>
+                  <th>Qty</th>
+                  <th>Location</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Koko's Boots</td>
+                  <td>Imperfect</td>
+                  <td>700</td>
+                  <td>Ereboria</td>
+                </tr>
+                <tr>
+                  <td>Gelano</td>
+                  <td>Solid</td>
+                  <td>800</td>
+                  <td>Bilbyza</td>
+                </tr>
+                <tr>
+                  <td>Kel'Dwa Ring</td>
+                  <td>Durable</td>
+                  <td>1000</td>
+                  <td>Wild Beach</td>
+                </tr>
+                <tr>
+                  <td>Dazzling Signet</td>
+                  <td>Exquisite</td>
+                  <td>1000</td>
+                  <td>Amakna</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        <!-- BMC Footer -->
+        <div class="sidebar-footer">
+          <a href="https://www.buymeacoffee.com/nexuswow" target="_blank">
+            <img
+              src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+              alt="Buy Me A Coffee"
+              class="bmc-sidebar-img"
+            />
+          </a>
+        </div>
+      </div>
     </div>
-</div>
-            <!-- NEW SIDEBAR FOOTER FOR BMC -->
-            <div class="sidebar-footer">
-                <a href="https://www.buymeacoffee.com/nexuswow" target="_blank">
-                 <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" class="bmc-sidebar-img">
-                </a>
+
+    <!-- NEW: DEDICATED DUNGEON FORECAST SIDEBAR -->
+    <div id="dungeon-sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h3>Dungeon Forecast</h3>
+        <button class="close-sidebar-btn" onclick="toggleDungeonSidebar()">
+          ×
+        </button>
+      </div>
+
+      <div class="sidebar-content">
+        <div class="forecast-main-container">
+          <!-- This part stays at the top -->
+          <div id="forecast-header-sticky"></div>
+
+          <!-- This part scrolls -->
+          <div id="forecast-list-scrollable">
+            <div style="text-align: center; padding: 20px; color: #888">
+              Loading...
             </div>
+          </div>
         </div>
+
+        <div
+          style="
+            margin-top: 8px;
+            text-align: center;
+            font-size: 0.7em;
+            color: #666;
+            font-style: italic;
+          "
+        >
+          Using data of Narakia et Vicky Zweistein
+        </div>
+      </div>
+
+      <!-- BMC Footer (duplicated for consistent look) -->
+      <div class="sidebar-footer">
+        <a href="https://www.buymeacoffee.com/nexuswow" target="_blank">
+          <img
+            src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+            alt="Buy Me A Coffee"
+            class="bmc-sidebar-img"
+          />
+        </a>
+      </div>
+    </div>
 
     <!-- Footer for File Tracking Info -->
     <div id="app-footer">
-        <div class="file-info">
-            <!-- LIVE Indicator -->
-            <span id="live-indicator" style="margin-right: 2px; font-size:0.8em; color:#0f0; display:none;">●</span>
-            <!-- Tracking Label -->
-            <span style="color:var(--accent); font-weight:bold;">Tracking: </span> 
-            <span id="active-filename" style="margin-left: 5px; color:#aaa;">No File</span>
-            <span class="footer-separator">|</span>
-            <!-- Daily Timer -->
-            <span id="daily-timer-display" title="Time remaining until Paris Midnight">
-                <span style="color:var(--accent); font-weight:bold;">Daily Reset in: </span>
-                <span id="daily-val" style="color: #fff; font-family: monospace;">--:--</span>
-            </span>
-            <span class="footer-separator">|</span>
-            <!-- Sidebar Toggles at Footer -->
-            <span class="footer-btn" onclick="toggleProfSidebar()">PROFESSIONS</span>
-            <span class="footer-separator">|</span>
-            <span class="footer-btn" onclick="toggleSidebar()">QUICK INFO</span>
-        </div>
+      <div class="file-info">
+        <!-- LIVE Indicator -->
+        <span
+          id="live-indicator"
+          style="
+            margin-right: 2px;
+            font-size: 0.8em;
+            color: #0f0;
+            display: none;
+          "
+          >●</span
+        >
+
+        <!-- Tracking Label -->
+        <span style="color: var(--accent); font-weight: bold">Tracking: </span>
+        <span
+          id="active-filename"
+          style="margin-left: 5px; color: var(--text-muted)"
+          >No File</span
+        >
+
+        <!-- Separator -->
+        <span class="footer-separator">|</span>
+
+        <!-- Daily Timer -->
+        <span
+          id="daily-timer-display"
+          title="Time remaining until Paris Midnight"
+        >
+          <span style="color: var(--accent); font-weight: bold"
+            >Daily Reset in:
+          </span>
+          <span
+            id="daily-val"
+            style="color: var(--text-main); font-family: monospace"
+            >--:--</span
+          >
+        </span>
+
+        <!-- Separator -->
+        <span class="footer-separator">|</span>
+
+        <!-- Sidebar Toggles -->
+        <span
+          class="footer-btn"
+          onclick="toggleProfSidebar()"
+          style="margin-right: 15px"
+          >PROFESSIONS</span
+        >
+
+        <!-- Daily Dungeons Button -->
+        <span
+          class="footer-btn"
+          onclick="toggleDungeonSidebar()"
+          style="margin-right: 15px"
+          >DAILY DUNGEONS</span
+        >
+
+        <span class="footer-btn" onclick="toggleSidebar()">QUICK INFO</span>
+      </div>
     </div>
 
-<!-- Custom Tracker Edit Modal -->
-<div id="tracker-modal" class="custom-modal" style="display:none;">
-    <div class="modal-content">
+    <!-- Custom Tracker Edit Modal -->
+    <div id="tracker-modal" class="custom-modal" style="display: none">
+      <div class="modal-content">
         <div class="modal-header">
-            <img id="modal-item-icon" src="" class="resource-icon">
-            <h3 id="modal-item-name">Edit Item</h3>
-            <button class="close-modal" onclick="closeTrackerModal()">×</button>
+          <img id="modal-item-icon" src="" class="resource-icon" />
+          <h3 id="modal-item-name">Edit Item</h3>
+          <button class="close-modal" onclick="closeTrackerModal()">×</button>
         </div>
         <div class="modal-body">
-            <!-- Wrapped in input-row for side-by-side -->
-            <div class="input-row">
-                <div class="input-group">
-                    <label>Current</label>
-                    <input type="number" id="modal-input-current" class="t-input modal-field">
-                </div>
-                <div class="input-group">
-                    <label>Target</label>
-                    <input type="number" id="modal-input-target" class="t-input modal-field">
-                </div>
+          <!-- Wrapped in input-row for side-by-side -->
+          <div class="input-row">
+            <div class="input-group">
+              <label>Current</label>
+              <input
+                type="number"
+                id="modal-input-current"
+                class="t-input modal-field"
+              />
             </div>
-            
-            <button class="add-track-btn save-btn" id="modal-save-btn">SAVE CHANGES</button>
-            <button class="delete-item-btn" id="modal-delete-btn" style="color:#ff4d4d; margin-top:10px; cursor:pointer; background:none; border:none; text-decoration:underline;">Remove Item</button>
+            <div class="input-group">
+              <label>Target</label>
+              <input
+                type="number"
+                id="modal-input-target"
+                class="t-input modal-field"
+              />
+            </div>
+          </div>
+
+          <button class="add-track-btn save-btn" id="modal-save-btn">
+            SAVE CHANGES
+          </button>
+          <button
+            class="delete-item-btn"
+            id="modal-delete-btn"
+            style="
+              color: #ff4d4d;
+              margin-top: 10px;
+              cursor: pointer;
+              background: none;
+              border: none;
+              text-decoration: underline;
+            "
+          >
+            Remove Item
+          </button>
         </div>
+      </div>
     </div>
-</div>
 
     <!-- LOAD DATABASE FIRST -->
     <script src="database.js"></script>
@@ -478,17 +994,17 @@
     <script src="script.js"></script>
 
     <!-- BUY ME A COFFEE WIDGET -->
-    <script data-name="BMC-Widget" 
-    data-cfasync="false" 
-    src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" 
-    data-id="nexuswow" 
-    data-description="Support me on Buy me a coffee!" 
-    data-message="If you'd like to support my time spent, you can contribute here!" 
-    data-color="#5F7FFF" 
-    data-position="Right" 
-    data-x_margin="10" 
-    data-y_margin="10">
-    </script>
-    
-</body>
+    <script
+      data-name="BMC-Widget"
+      data-cfasync="false"
+      src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js"
+      data-id="nexuswow"
+      data-description="Support me on Buy me a coffee!"
+      data-message="If you'd like to support my time spent, you can contribute here!"
+      data-color="#5F7FFF"
+      data-position="Right"
+      data-x_margin="10"
+      data-y_margin="10"
+    ></script>
+  </body>
 </html>

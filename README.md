@@ -6,7 +6,7 @@
 
 ## 🚀 New in This Version
 
-- **📉 Memory Optimization:** Implemented batch rendering and DOM limiting to prevent memory leaks during long sessions or massive loot streaks (reduced memory usage from ~1.7GB to <200MB).
+- **📉 Memory Optimization:** Implemented batch rendering and DOM limiting to prevent memory leaks during long sessions or massive loot streaks (reduced memory usage to <200MB).
 - **🔍 Item Tracker Filters:** Filter your tracking list by Gathering Profession (Miner, Farmer, Trapper, etc.) or view All items with a single click.
 - **⚡ Smart Sorting:** Tracker sorting now prioritizes Crafting Professions first, then Item Level, then Name. Supports Ascending/Descending toggle.
 - **🛠️ Profession XP Calculator:** Renamed and improved. Calculate resources needed for specific level ranges and add them directly to your tracker.

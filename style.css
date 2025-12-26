@@ -2583,3 +2583,41 @@ body.pip-window .empty-state {
     display: none;
   }
 }
+
+#dungeon-sidebar .forecast-main-container {
+  height: auto; /* Changed from 100% to auto so it fits content */
+  display: flex;
+  flex-direction: column;
+  border: none;
+  background: transparent;
+  margin-top: 0;
+}
+
+#dungeon-sidebar #forecast-list-scrollable {
+  max-height: none;
+  height: auto; /* Allow it to grow naturally */
+  overflow: visible; /* Remove internal scrollbar */
+  flex: none; /* Don't force expansion */
+  background: #1a1a1a;
+  border-radius: 0 0 4px 4px;
+  border: 1px solid #333;
+  border-top: none;
+  padding-bottom: 5px; /* Tiny padding at bottom of list */
+}
+
+#dungeon-sidebar #forecast-header-sticky {
+  border: 1px solid #333;
+  border-bottom: 2px solid #000;
+  border-radius: 4px 4px 0 0;
+  position: sticky; /* Keeps the nav at top while scrolling sidebar */
+  top: -20px; /* Offset for sidebar padding */
+  z-index: 10;
+}
+
+/* Ensure footer buttons have consistent margins */
+.footer-btn {
+  margin-right: 15px;
+}
+.footer-btn:last-child {
+  margin-right: 0;
+}

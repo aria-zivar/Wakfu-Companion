@@ -2499,7 +2499,45 @@ function updateDailyTimer() {
 // SIDEBAR TOGGLE
 function toggleSidebar() {
   const sidebar = document.getElementById("info-sidebar");
+  const dungeonSidebar = document.getElementById("dungeon-sidebar");
+  const profSidebar = document.getElementById("professions-sidebar");
+
+  // Close others if open (Optional, for cleaner UI)
+  if (dungeonSidebar) dungeonSidebar.classList.remove("open");
+  if (profSidebar) profSidebar.classList.remove("open");
+
   sidebar.classList.toggle("open");
+}
+
+function toggleDungeonSidebar() {
+  const sidebar = document.getElementById("dungeon-sidebar");
+  const infoSidebar = document.getElementById("info-sidebar");
+  const profSidebar = document.getElementById("professions-sidebar");
+
+  // Close others if open
+  if (infoSidebar) infoSidebar.classList.remove("open");
+  if (profSidebar) profSidebar.classList.remove("open");
+
+  if (sidebar) {
+    sidebar.classList.toggle("open");
+    // Ensure UI is rendered if opening for the first time or data changed
+    if (sidebar.classList.contains("open")) renderForecastUI();
+  }
+}
+
+function toggleProfSidebar() {
+  const sidebar = document.getElementById("professions-sidebar");
+  const infoSidebar = document.getElementById("info-sidebar");
+  const dungeonSidebar = document.getElementById("dungeon-sidebar");
+
+  if (infoSidebar) infoSidebar.classList.remove("open");
+  if (dungeonSidebar) dungeonSidebar.classList.remove("open");
+
+  if (sidebar.classList.contains("open")) {
+    sidebar.classList.remove("open");
+  } else {
+    sidebar.classList.add("open");
+  }
 }
 
 // Sidebar Section Toggle
