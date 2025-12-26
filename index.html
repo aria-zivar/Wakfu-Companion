@@ -70,6 +70,17 @@
                         <button class="toggle-btn" id="autoResetToggle">
                             <span id="autoResetText">Auto Reset</span>
                         </button>
+
+                        <div id="history-nav" class="history-container">
+                            <button class="hist-btn active" id="btn-live" onclick="viewHistory('live')" title="Current Fight">LIVE</button>
+                            <span class="hist-sep">|</span>
+                            <button class="hist-btn disabled" id="btn-hist-0" onclick="viewHistory(0)">1</button>
+                            <button class="hist-btn disabled" id="btn-hist-1" onclick="viewHistory(1)">2</button>
+                            <button class="hist-btn disabled" id="btn-hist-2" onclick="viewHistory(2)">3</button>
+                            <button class="hist-btn disabled" id="btn-hist-3" onclick="viewHistory(3)">4</button>
+                            <button class="hist-btn disabled" id="btn-hist-4" onclick="viewHistory(4)">5</button>
+                        </div>
+                        
                         <div style="flex-grow: 1;"></div>
                         <button class="export-btn" id="discordBtn" title="Copy Report for Discord" onclick="exportToDiscord()">
                             📋

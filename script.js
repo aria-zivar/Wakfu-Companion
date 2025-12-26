@@ -14,6 +14,9 @@ let allKnownSpells = new Set();
 const MAX_CACHE_SIZE = 200;
 let trackerDirty = false;
 const MAX_CHAT_HISTORY = 200; // Limit chat DOM nodes to save memory
+let fightHistory = []; // Stores objects: { damage: {}, healing: {}, armor: {} }
+let currentViewIndex = "live"; // 'live' or 0-4
+let hasUnsavedChanges = false; // Prevents duplicate saves
 
 // 1. AUTO RESET DEFAULT (True unless user saved 'false')
 const storedReset = localStorage.getItem("wakfu_auto_reset");
@@ -1153,12 +1156,16 @@ function processLine(line) {
   );
 
   if (battleJustFinished) {
+    // NEW: Save immediately when fight ends
+    saveFightToHistory();
+
     awaitingNewFight = true;
     updateWatchdogUI();
-    // Do not return here, we still need to add to cache,
-    // but the flag is now set securely from system logs.
   }
 
+  // ... [Rest of processLine remains the same] ...
+
+  // [Code snippet for context of where to keep the rest]
   // Handle Log deduplication
   if (logLineCache.has(line)) return;
   logLineCache.add(line);
@@ -1167,7 +1174,6 @@ function processLine(line) {
     logLineCache.delete(firstItem);
   }
 
-  // ROUTING
   try {
     const isLootKeywords = [
       "picked up",
@@ -1304,21 +1310,30 @@ function detectClass(playerName, spellName) {
   }
 }
 
-function isPlayerAlly(p) {
-  // 1. Manual overrides (from dragging) take highest priority for PvP/Mistakes
-  if (manualOverrides[p.name]) return manualOverrides[p.name] === "ally";
+function isPlayerAlly(p, contextClasses = null, contextOverrides = null) {
+  const classesMap = contextClasses || playerClasses;
+  const overridesMap = contextOverrides || manualOverrides;
 
-  const lowerName = p.name.toLowerCase().trim();
+  // 1. Manual overrides (Drag & Drop)
+  if (overridesMap[p.name]) return overridesMap[p.name] === "ally";
 
-  // 2. Check if the name exists in our new multi-language monster database
-  // If found in monsterLookup, they are definitely an enemy.
-  if (monsterLookup[lowerName]) {
-    return false;
+  // 2. Check Enemy DB first (Strict)
+  if (typeof wakfuEnemies !== "undefined") {
+    const isEnemy = wakfuEnemies.some((fam) =>
+      p.name.toLowerCase().includes(fam.toLowerCase())
+    );
+    if (isEnemy || p.name.includes("Punchy") || p.name.includes("Papas"))
+      return false;
   }
 
-  // 3. Default: If not a known monster, assume it's a Player/Ally.
-  // Class detection will eventually assign them a Class icon.
-  return true;
+  // 3. Class Detection (Using the appropriate map)
+  if (classesMap[p.name]) return true;
+
+  // 4. Summons
+  if (typeof allySummons !== "undefined" && allySummons.includes(p.name))
+    return true;
+
+  return false; // Default to Enemy
 }
 
 // ==========================================
@@ -1660,6 +1675,9 @@ function updateCombatData(dataSet, player, spell, amount, element) {
     };
   }
   dataSet[player].spells[spellKey].val += amount;
+
+  // NEW: Mark as dirty so we know we have data to save
+  hasUnsavedChanges = true;
 }
 
 function togglePlayer(name) {
@@ -1684,26 +1702,37 @@ function collapseAll() {
 }
 
 // Helper: Determine if a player object belongs to Allies or Enemies
-function isPlayerAlly(p) {
-  if (manualOverrides[p.name]) return manualOverrides[p.name] === "ally";
+function isPlayerAlly(p, contextClasses = null, contextOverrides = null) {
+  const classesMap = contextClasses || playerClasses;
+  const overridesMap = contextOverrides || manualOverrides;
+  const name = p.name;
+  const lowerName = name.toLowerCase().trim();
 
-  // 1. Check Enemy DB first (Strict)
+  // 1. Manual Overrides (Highest Priority - from Drag & Drop)
+  if (overridesMap[name]) return overridesMap[name] === "ally";
+
+  // 2. Known Monsters & Bosses (Strict Enemy)
+  if (monsterLookup[lowerName]) return false;
+
+  // 3. Enemy Families (Generic Logic)
   if (typeof wakfuEnemies !== "undefined") {
     const isEnemy = wakfuEnemies.some((fam) =>
-      p.name.toLowerCase().includes(fam.toLowerCase())
+      lowerName.includes(fam.toLowerCase())
     );
-    if (isEnemy || p.name.includes("Punchy") || p.name.includes("Papas"))
+    if (isEnemy || name.includes("Punchy") || name.includes("Papas"))
       return false;
   }
 
-  // 2. Class Detection
-  if (playerClasses[p.name]) return true;
+  // 4. Detected Player Classes (Ally)
+  // Only checks this AFTER confirming it's not a known monster
+  if (classesMap[name]) return true;
 
-  // 3. Summons
-  if (typeof allySummons !== "undefined" && allySummons.includes(p.name))
+  // 5. Known Summons (Ally)
+  if (typeof allySummons !== "undefined" && allySummons.includes(name))
     return true;
 
-  return false; // Default to Enemy for unknowns
+  // 6. Default Fallback -> Enemy
+  return false;
 }
 
 // New Function: Expand or Collapse specific category
@@ -1736,20 +1765,24 @@ function modifyExpansion(category, action) {
   renderMeter();
 }
 
-function performReset() {
+function performReset(isAuto = false) {
+  // 1. Try to save (Will be skipped if hasUnsavedChanges is false, e.g. fight just ended)
+  saveFightToHistory();
+
+  // 2. Clear Live Data
   fightData = {};
   healData = {};
   armorData = {};
-  playerClasses = {};
-  summonBindings = {};
-  playerIconCache = {};
-  playerVariantState = {};
-  manualOverrides = {};
+
+  // 3. Reset State
   currentCaster = "Unknown";
   currentSpell = "Unknown Spell";
-
-  // IMPORTANT: Reset our state flag
   awaitingNewFight = false;
+  hasUnsavedChanges = false; // Reset the dirty flag
+
+  // 4. Force view back to LIVE on reset
+  currentViewIndex = "live";
+  updateHistoryButtons();
 
   renderMeter();
   updateWatchdogUI();
@@ -1761,14 +1794,42 @@ document.getElementById("resetBtn").addEventListener("click", performReset);
 // RENDER METER
 // ==========================================
 function renderMeter() {
+  // DETERMINE DATA SOURCE & CONTEXT
+  let sourceFight, sourceHeal, sourceArmor;
+  let sourceClasses, sourceOverrides; // Context for Ally Detection
+
+  if (currentViewIndex === "live") {
+    sourceFight = fightData;
+    sourceHeal = healData;
+    sourceArmor = armorData;
+    sourceClasses = playerClasses;
+    sourceOverrides = manualOverrides;
+
+    const liveIndicator = document.getElementById("live-indicator");
+    if (liveIndicator) liveIndicator.style.color = "#0f0";
+  } else {
+    // History View
+    const snapshot = fightHistory[currentViewIndex];
+    if (!snapshot) return;
+
+    sourceFight = snapshot.damage;
+    sourceHeal = snapshot.healing;
+    sourceArmor = snapshot.armor;
+    // Load the state as it was during that specific fight
+    sourceClasses = snapshot.classes || {};
+    sourceOverrides = snapshot.overrides || {};
+
+    const liveIndicator = document.getElementById("live-indicator");
+    if (liveIndicator) liveIndicator.style.color = "#e74c3c";
+  }
+
   let dataSet;
-  if (activeMeterMode === "damage") dataSet = fightData;
-  else if (activeMeterMode === "healing") dataSet = healData;
-  else dataSet = armorData;
+  if (activeMeterMode === "damage") dataSet = sourceFight;
+  else if (activeMeterMode === "healing") dataSet = sourceHeal;
+  else dataSet = sourceArmor;
 
   const players = Object.values(dataSet);
 
-  // Use getUI helper to ensure compatibility with Picture-in-Picture window
   const alliesContainer = getUI("list-allies");
   const enemiesContainer = getUI("list-enemies");
   const alliesTotalEl = getUI("allies-total-val");
@@ -1777,7 +1838,9 @@ function renderMeter() {
   if (!alliesContainer || !enemiesContainer) return;
 
   if (players.length === 0) {
-    alliesContainer.innerHTML = `<div class="empty-state">Waiting for combat...</div>`;
+    alliesContainer.innerHTML = `<div class="empty-state">${
+      currentViewIndex === "live" ? "Waiting for combat..." : "No data recorded"
+    }</div>`;
     enemiesContainer.innerHTML = "";
     alliesTotalEl.textContent = "0";
     enemiesTotalEl.textContent = "0";
@@ -1788,7 +1851,8 @@ function renderMeter() {
   const enemies = [];
 
   players.forEach((p) => {
-    if (isPlayerAlly(p)) {
+    // PASS CONTEXT to detection logic
+    if (isPlayerAlly(p, sourceClasses, sourceOverrides)) {
       allies.push(p);
     } else {
       enemies.push(p);
@@ -1822,21 +1886,30 @@ function renderMeter() {
           : "0.0%";
       const isExpanded = expandedPlayers.has(p.name);
 
-      // --- ICON LOGIC ---
+      // --- ICON LOGIC (UPDATED) ---
+      // Note: We bypass the global cache if we are in history mode OR if the cache is missing
+      // to ensure we use the correct sourceClasses
       let iconHtml = playerIconCache[p.name];
-      if (!iconHtml) {
+
+      // If in history mode, regenerate icon to ensure it matches history context
+      // (or if missing in live)
+      if (currentViewIndex !== "live" || !iconHtml) {
         const lowerName = p.name.toLowerCase().trim();
         const monsterImgId = monsterLookup[lowerName];
 
         if (monsterImgId) {
           iconHtml = `<img src="./img/monsters/${monsterImgId}" class="class-icon" onerror="this.src='./img/classes/not_found.png';">`;
         } else {
-          const classIconName = playerClasses[p.name];
+          // USE CONTEXT CLASSES
+          const classIconName = sourceClasses[p.name];
           if (classIconName) {
+            // Use global variant state for toggle interaction, but history class source
             const isAlt = playerVariantState[p.name];
             const currentSrc = isAlt
               ? `./img/classes/${classIconName}-f.png`
               : `./img/classes/${classIconName}.png`;
+
+            // Note: toggling variant in history won't persist to the history snapshot object, which is fine
             iconHtml = `<img src="${currentSrc}" class="class-icon" onmouseover="toggleIconVariant('${p.name.replace(
               /'/g,
               "\\'"
@@ -1845,15 +1918,17 @@ function renderMeter() {
             iconHtml = `<img src="./img/classes/not_found.png" class="class-icon">`;
           }
         }
-        playerIconCache[p.name] = iconHtml;
+
+        // Only cache if live, otherwise just use it temporarily
+        if (currentViewIndex === "live") playerIconCache[p.name] = iconHtml;
       }
 
-      // Create the main block
       const rowBlock = document.createElement("div");
       rowBlock.className = `player-block ${isExpanded ? "expanded" : ""}`;
       rowBlock.setAttribute("draggable", "true");
 
-      // --- DRAG & DROP BINDING EVENTS (RE-ENABLED) ---
+      // Drag Events (Only enabled in Live mode for logic safety, or allow visual only?)
+      // Allowing dragging in history won't save to history state easily, so maybe keep it functional visually
       rowBlock.addEventListener("dragstart", (e) => {
         e.dataTransfer.setData("text/plain", p.name);
         rowBlock.style.opacity = "0.5";
@@ -1861,6 +1936,7 @@ function renderMeter() {
       rowBlock.addEventListener("dragend", (e) => {
         rowBlock.style.opacity = "1";
       });
+      // ... [Drag Over/Drop handlers remain same] ...
       rowBlock.addEventListener("dragover", (e) => {
         e.preventDefault();
         rowBlock.classList.add("drag-target");
@@ -1871,13 +1947,14 @@ function renderMeter() {
       rowBlock.addEventListener("drop", (e) => {
         e.preventDefault();
         rowBlock.classList.remove("drag-target");
-        const draggedName = e.dataTransfer.getData("text/plain");
-        const targetMasterName = p.name;
-
-        if (draggedName && draggedName !== targetMasterName) {
-          summonBindings[draggedName] = targetMasterName;
-          mergeSummonData(draggedName, targetMasterName);
-          renderMeter();
+        // Only allow modifying bindings in LIVE mode
+        if (currentViewIndex === "live") {
+          const draggedName = e.dataTransfer.getData("text/plain");
+          if (draggedName && draggedName !== p.name) {
+            summonBindings[draggedName] = p.name;
+            mergeSummonData(draggedName, p.name);
+            renderMeter();
+          }
         }
       });
 
@@ -1927,7 +2004,6 @@ function renderMeter() {
           const spellBarPercent = (s.val / p.total) * 100;
           const spellContribPercent =
             p.total > 0 ? ((s.val / p.total) * 100).toFixed(1) + "%" : "0.0%";
-
           let iconName = (s.element || "neutral").toLowerCase();
           const iconHtmlSpell = `<img src="./img/elements/${iconName}.png" class="spell-icon" onerror="this.src='./img/elements/neutral.png'">`;
 
@@ -2836,24 +2912,38 @@ function closeTrackerModal() {
 // ==========================================
 function exportToDiscord() {
   let dataSet;
-  let title;
+  let titlePrefix;
+  let sourceObj;
 
-  // Determine what to export based on active tab
-  if (activeMeterMode === "damage") {
-    dataSet = fightData;
-    title = "DAMAGE REPORT";
-  } else if (activeMeterMode === "healing") {
-    dataSet = healData;
-    title = "HEALING REPORT";
+  // 1. Determine Data Source (Live or History Snapshot)
+  if (currentViewIndex === "live") {
+    sourceObj = { damage: fightData, healing: healData, armor: armorData };
+    titlePrefix = "LIVE";
   } else {
-    dataSet = armorData;
-    title = "ARMOR REPORT";
+    const snapshot = fightHistory[currentViewIndex];
+    if (!snapshot) return alert("No history data recorded for this slot.");
+    sourceObj = snapshot;
+    titlePrefix = `HISTORY #${currentViewIndex + 1}`;
   }
 
+  // 2. Select specific mode based on active tab
+  let modeTitle;
+  if (activeMeterMode === "damage") {
+    dataSet = sourceObj.damage;
+    modeTitle = "DAMAGE";
+  } else if (activeMeterMode === "healing") {
+    dataSet = sourceObj.healing;
+    modeTitle = "HEALING";
+  } else {
+    dataSet = sourceObj.armor;
+    modeTitle = "ARMOR";
+  }
+
+  // 3. Validation
   const players = Object.values(dataSet);
   if (players.length === 0) return alert("No data to export.");
 
-  // Separate Allies vs Enemies
+  // 4. Processing (Sorting Allies/Enemies)
   const allies = [];
   const enemies = [];
   players.forEach((p) => {
@@ -2874,8 +2964,8 @@ function exportToDiscord() {
   const getPercent = (val, total) =>
     total > 0 ? Math.round((val / total) * 100) + "%" : "0%";
 
-  // Build String (Markdown Code Block for Discord)
-  let report = `\`\`\`ini\n[ ${title} ]\n`;
+  // 5. Build String (Markdown Code Block for Discord)
+  let report = `\`\`\`ini\n[ ${titlePrefix} - ${modeTitle} REPORT ]\n`;
   report += `Total: ${formatNum(totalAlly)} (Allies) vs ${formatNum(
     totalEnemy
   )} (Enemies)\n\n`;
@@ -2908,7 +2998,7 @@ function exportToDiscord() {
 
   report += `\`\`\``;
 
-  // Copy to Clipboard with Visual Feedback
+  // 6. Copy to Clipboard with Visual Feedback
   navigator.clipboard
     .writeText(report)
     .then(() => {
@@ -2928,8 +3018,97 @@ function exportToDiscord() {
     });
 }
 
+// ==========================================
+// HISTORY LOGIC
+// ==========================================
+
+function saveFightToHistory() {
+  // 1. Check if there is data
+  if (Object.keys(fightData).length === 0 && Object.keys(healData).length === 0)
+    return;
+
+  // 2. NEW: Check if we actually have new changes since last save
+  if (!hasUnsavedChanges) return;
+
+  // Create a deep copy of the current state
+  const snapshot = {
+    damage: JSON.parse(JSON.stringify(fightData)),
+    healing: JSON.parse(JSON.stringify(healData)),
+    armor: JSON.parse(JSON.stringify(armorData)),
+    classes: JSON.parse(JSON.stringify(playerClasses)),
+    overrides: JSON.parse(JSON.stringify(manualOverrides)),
+    timestamp: new Date().toLocaleTimeString(),
+  };
+
+  // Add to start of array
+  fightHistory.unshift(snapshot);
+
+  // Keep max 5
+  if (fightHistory.length > 5) {
+    fightHistory.pop();
+  }
+
+  try {
+    localStorage.setItem("wakfu_fight_history", JSON.stringify(fightHistory));
+  } catch (e) {
+    console.error("Failed to save history", e);
+  }
+
+  // NEW: Mark as saved
+  hasUnsavedChanges = false;
+
+  updateHistoryButtons();
+}
+
+function loadFightHistory() {
+  const stored = localStorage.getItem("wakfu_fight_history");
+  if (stored) {
+    try {
+      fightHistory = JSON.parse(stored);
+      updateHistoryButtons();
+    } catch (e) {
+      console.error("Error loading fight history:", e);
+      fightHistory = []; // Reset on corruption
+    }
+  }
+}
+
+function updateHistoryButtons() {
+  // Update numeric buttons availability
+  for (let i = 0; i < 5; i++) {
+    const btn = document.getElementById(`btn-hist-${i}`);
+    if (btn) {
+      if (fightHistory[i]) {
+        btn.classList.remove("disabled");
+        btn.title = `Fight ended at ${fightHistory[i].timestamp}`;
+      } else {
+        btn.classList.add("disabled");
+        btn.title = "Empty";
+      }
+
+      // Highlight active view
+      if (currentViewIndex === i) btn.classList.add("active");
+      else btn.classList.remove("active");
+    }
+  }
+
+  // Update Live button
+  const liveBtn = document.getElementById("btn-live");
+  if (liveBtn) {
+    if (currentViewIndex === "live") liveBtn.classList.add("active");
+    else liveBtn.classList.remove("active");
+  }
+}
+
+function viewHistory(index) {
+  currentViewIndex = index;
+  updateHistoryButtons();
+  renderMeter(); // Will pick up the data based on index
+}
+
 // INITIALIZATION
 // Update timer every minute
 setInterval(updateDailyTimer, 60000);
 updateDailyTimer();
 updateWatchdogUI();
+loadFightHistory();

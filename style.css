@@ -2518,3 +2518,68 @@ body.pip-window .empty-state {
   border-color: var(--accent);
   color: #000; /* Black text on Cyan background for readability */
 }
+
+/* --- Fight History Controls --- */
+.history-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #333;
+}
+
+.hist-btn {
+  background: transparent;
+  color: #666;
+  border: 1px solid transparent;
+  width: 24px;
+  height: 24px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+/* Specific width for the LIVE button */
+#btn-live {
+  width: auto;
+  padding: 0 6px;
+}
+
+.hist-btn:hover:not(.disabled) {
+  background: #444;
+  color: #fff;
+}
+
+.hist-btn.active {
+  background: var(--accent);
+  color: #000;
+  box-shadow: 0 0 5px rgba(0, 210, 255, 0.4);
+}
+
+.hist-btn.disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+
+.hist-sep {
+  color: #444;
+  font-size: 0.8em;
+  margin: 0 2px;
+}
+
+/* Responsive adjustment */
+@media (max-width: 1400px) {
+  #btn-live {
+    display: none;
+  } /* Hide text label on small screens */
+  .hist-sep {
+    display: none;
+  }
+}
