@@ -1532,7 +1532,7 @@ function processFightLog(line) {
   if (parts.length < 2) return;
   const content = parts[1].trim();
 
-  // Handle Battle Reset logic
+  // Auto Reset Logic
   if (
     isAutoResetOn &&
     awaitingNewFight &&
@@ -1543,8 +1543,6 @@ function processFightLog(line) {
   }
 
   // 1. Turn/Time Carryover - RESET CASTER
-  // This prevents the last player of the previous turn from taking credit
-  // for start-of-turn environmental effects or boss self-buffs.
   if (content.includes("carried over") || content.includes("tour suivant")) {
     currentCaster = null;
     currentSpell = "Passive / Indirect";
@@ -1580,7 +1578,7 @@ function processFightLog(line) {
 
     if (isNaN(amount) || amount <= 0) return;
 
-    // Extract suffixes: e.g., (Fire) (Defensive Orb Shield) (Regeneration Potion)
+    // Extract suffixes
     const details = (suffix.match(/\(([^)]+)\)/g) || []).map((p) =>
       p.slice(1, -1)
     );
@@ -1593,10 +1591,9 @@ function processFightLog(line) {
       if (norm) {
         detectedElement = norm;
       } else if (!NOISE_WORDS.has(d)) {
-        // IMPROVED LOGIC: Smart Spell Override
+        // IMPROVED LOGIC: Spell Override & Item Detection
 
         // 1. Is the text inside brackets a KNOWN spell in our DB?
-        // If yes, it's a specific proc (e.g. "Explosion") -> We use it.
         const knownMatch = Array.from(allKnownSpells).find(
           (s) => d === s || d.includes(s)
         );
@@ -1604,15 +1601,19 @@ function processFightLog(line) {
         if (knownMatch) {
           spellOverride = knownMatch;
         } else {
-          // 2. It is an UNKNOWN text (e.g. "Regeneration Potion").
-          // We only use this as the spell name IF the current active spell is ALSO unknown/generic.
-          // If we already know the player cast a real spell (e.g. "Celestial Sword"), we prefer keeping that
-          // unless the suffix implies a distinct item/mechanic (previously filtered by "Potion", now allowed).
+          // 2. UNKNOWN text processing
+          // Detect if this is likely an Item/Consumable which should ALWAYS take precedence
+          const isPrioritySource =
+            d.includes("Potion") ||
+            d.includes("Flask") ||
+            d.includes("Flasque") ||
+            d.includes("Consumable");
 
           const isCurrentSpellValid =
             currentSpell && spellToClassMap[currentSpell];
 
-          if (!isCurrentSpellValid) {
+          // If it's a priority item (Potion) OR if we don't have a valid active spell, use the text.
+          if (isPrioritySource || !isCurrentSpellValid) {
             if (!d.toLowerCase().includes("lost")) {
               spellOverride = d;
             }
@@ -1624,12 +1625,12 @@ function processFightLog(line) {
     // ATTRIBUTION LOGIC
     let finalCaster = currentCaster;
 
-    // A. No active caster? Attribute to Target (Self-proc)
+    // No active caster? Attribute to Target (Self-proc)
     if (!currentCaster || currentCaster === "Unknown") {
       finalCaster = target;
     }
 
-    // B. Reflection / Self-Inflicted Mechanics
+    // Mechanics that reflect/self-harm
     if (
       ["Burning Armor", "Armadura Ardiente", "Reflect", "Thorns"].some(
         (s) => spellOverride && spellOverride.includes(s)
@@ -1638,13 +1639,12 @@ function processFightLog(line) {
       finalCaster = target;
     }
 
-    // C. HEAL SAFEGUARD: Ally healing Enemy? -> Probably Boss Mechanic (Self Heal)
+    // HEAL SAFEGUARD: Ally healing Enemy? -> Probably Boss Mechanic (Self Heal)
     if (sign === "+") {
       const casterIsAlly = finalCaster && isPlayerAlly({ name: finalCaster });
       const targetIsAlly = isPlayerAlly({ name: target });
 
       if (casterIsAlly && !targetIsAlly) {
-        // Player healing Monster? Assume Monster healed self via mechanic
         finalCaster = target;
         if (!spellOverride) spellOverride = "Mechanic / Passive";
       }
@@ -1652,7 +1652,7 @@ function processFightLog(line) {
 
     let finalSpell = spellOverride || currentSpell;
 
-    // D. SIGNATURE REROUTING (Forces spells like Harmless Toxin to Sadida)
+    // SIGNATURE REROUTING
     if (
       finalSpell &&
       finalSpell !== "Unknown Spell" &&
@@ -1661,7 +1661,7 @@ function processFightLog(line) {
       finalCaster = getSignatureCaster(finalSpell, finalCaster);
     }
 
-    // E. Summon Binding (Merge Summon stats into Master)
+    // Summon Binding
     if (summonBindings[finalCaster]) {
       const master = summonBindings[finalCaster];
       finalSpell = `${finalSpell} (${finalCaster})`;
