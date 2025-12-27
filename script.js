@@ -131,6 +131,7 @@ const NOISE_WORDS = new Set([
   "Influence",
   "Dodge",
   "Lock",
+  "Increased Damage",
 ]);
 
 function generateSpellMap() {
@@ -1443,8 +1444,49 @@ const elementMap = {
 
 function normalizeElement(el) {
   if (!el) return null;
-  const low = el.toLowerCase();
-  return elementMap[low] || low.charAt(0).toUpperCase() + low.slice(1);
+  const low = el.toLowerCase().trim();
+  const elementMap = {
+    // English
+    fire: "Fire",
+    water: "Water",
+    earth: "Earth",
+    air: "Air",
+    stasis: "Stasis",
+    light: "Light",
+    neutral: "Neutral", // Added
+    // French
+    feu: "Fire",
+    eau: "Water",
+    terre: "Earth",
+    aire: "Air",
+    stase: "Stasis",
+    lumière: "Light",
+    neutre: "Neutral", // Added
+    // Spanish
+    fuego: "Fire",
+    agua: "Water",
+    tierra: "Earth",
+    aire: "Air",
+    estasis: "Stasis",
+    luz: "Light",
+    neutral: "Neutral", // Added
+    // Portuguese
+    fogo: "Fire",
+    água: "Water",
+    terra: "Earth",
+    ar: "Air",
+    estase: "Stasis",
+    luz: "Light",
+    neutro: "Neutral", // Added
+  };
+  return (
+    elementMap[low] ||
+    (["Fire", "Water", "Earth", "Air", "Stasis", "Light", "Neutral"].includes(
+      el
+    )
+      ? el
+      : null)
+  );
 }
 
 // Entities that should NEVER own subsequent damage procs
@@ -1501,9 +1543,8 @@ function processFightLog(line) {
   }
 
   // 1. Turn/Time Carryover - RESET CASTER
-  // "0 seconds carried over to the next turn" implies end of turn.
-  // We reset currentCaster so subsequent passive procs (like Boss self-heals)
-  // aren't attributed to the last player who acted.
+  // This prevents the last player of the previous turn from taking credit
+  // for start-of-turn environmental effects or boss self-buffs.
   if (content.includes("carried over") || content.includes("tour suivant")) {
     currentCaster = null;
     currentSpell = "Passive / Indirect";
@@ -1539,7 +1580,7 @@ function processFightLog(line) {
 
     if (isNaN(amount) || amount <= 0) return;
 
-    // Extract suffixes: e.g., (Fire) (Defensive Orb Shield) (Berserk Wakfu)
+    // Extract suffixes: e.g., (Fire) (Defensive Orb Shield) (Regeneration Potion)
     const details = (suffix.match(/\(([^)]+)\)/g) || []).map((p) =>
       p.slice(1, -1)
     );
@@ -1552,10 +1593,10 @@ function processFightLog(line) {
       if (norm) {
         detectedElement = norm;
       } else if (!NOISE_WORDS.has(d)) {
-        // IMPROVED: If it's not an element and not noise, accept it as a spell name
-        // This catches things like "(Berserk Wakfu)" or "(Furtive)" even if not in DB.
+        // IMPROVED LOGIC: Smart Spell Override
 
-        // Check 1: Is it a known spell in DB? (High Confidence)
+        // 1. Is the text inside brackets a KNOWN spell in our DB?
+        // If yes, it's a specific proc (e.g. "Explosion") -> We use it.
         const knownMatch = Array.from(allKnownSpells).find(
           (s) => d === s || d.includes(s)
         );
@@ -1563,10 +1604,18 @@ function processFightLog(line) {
         if (knownMatch) {
           spellOverride = knownMatch;
         } else {
-          // Check 2: Heuristic - if it's not "Lost" or "Potion", treat as spell
-          // This allows capturing new/unknown passives.
-          if (!d.toLowerCase().includes("lost") && !d.includes("Potion")) {
-            spellOverride = d;
+          // 2. It is an UNKNOWN text (e.g. "Regeneration Potion").
+          // We only use this as the spell name IF the current active spell is ALSO unknown/generic.
+          // If we already know the player cast a real spell (e.g. "Celestial Sword"), we prefer keeping that
+          // unless the suffix implies a distinct item/mechanic (previously filtered by "Potion", now allowed).
+
+          const isCurrentSpellValid =
+            currentSpell && spellToClassMap[currentSpell];
+
+          if (!isCurrentSpellValid) {
+            if (!d.toLowerCase().includes("lost")) {
+              spellOverride = d;
+            }
           }
         }
       }
@@ -1590,7 +1639,6 @@ function processFightLog(line) {
     }
 
     // C. HEAL SAFEGUARD: Ally healing Enemy? -> Probably Boss Mechanic (Self Heal)
-    // Fixes "Elio healed Boss" issue
     if (sign === "+") {
       const casterIsAlly = finalCaster && isPlayerAlly({ name: finalCaster });
       const targetIsAlly = isPlayerAlly({ name: target });
@@ -1613,7 +1661,7 @@ function processFightLog(line) {
       finalCaster = getSignatureCaster(finalSpell, finalCaster);
     }
 
-    // E. Summon Binding
+    // E. Summon Binding (Merge Summon stats into Master)
     if (summonBindings[finalCaster]) {
       const master = summonBindings[finalCaster];
       finalSpell = `${finalSpell} (${finalCaster})`;
