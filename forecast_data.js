@@ -1913,6 +1913,18 @@ const DUNGEON_TRANSLATIONS = {
     es: "Colmena Madre Arenóptera",
     pt: "Colmeia-Mãe dos Areiópteros",
   },
+  "The Ratatombs": {
+    en: "The Ratatombs",
+    fr: "Les Ratacombes",
+    es: "Las Ratatumbas",
+    pt: "As Ratatumbas",
+  },
+  "Kween's Gawden": {
+    en: "Kween's Gawden",
+    fr: "Jardin de la Reine",
+    es: "Jardín de la Reina",
+    pt: "Jardim da Rainha",
+  },
   "Wellspring of Evil": {
     en: "Wellspring of Evil",
     fr: "Source du Mal",
