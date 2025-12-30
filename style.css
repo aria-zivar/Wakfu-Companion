@@ -1351,6 +1351,7 @@ button.reset-btn:hover {
   grid-template-columns: 1fr 1fr; /* Two equal columns */
   gap: 8px;
   align-items: start;
+  padding-bottom: 20px;
 }
 
 .forecast-col {
@@ -1370,13 +1371,15 @@ button.reset-btn:hover {
 /* Compact Row Item */
 .compact-forecast-item {
   background: rgba(255, 255, 255, 0.05);
-  margin-bottom: 2px;
-  padding: 5px 6px;
   display: flex;
-  flex-direction: column; /* Stack Badge and Name vertically for space */
-  gap: 2px;
+  flex-direction: column;
   border-bottom: 1px solid #222;
-  border-left: 2px solid transparent; /* Status indicator placeholder */
+  gap: 4px;
+  min-height: 50px; /* Taller for grid wrapping */
+  height: auto;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  border-left: 2px solid transparent;
 }
 
 /* Specific Border Colors for Categories */
@@ -1407,11 +1410,13 @@ button.reset-btn:hover {
 .compact-name {
   font-size: 0.8rem;
   color: #ddd;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
   width: 100%;
   cursor: help; /* Shows it has a tooltip */
+  word-break: break-word;
+  line-height: 1.25;
 }
 
 .compact-forecast-item.is-intersected .compact-name {
@@ -1552,8 +1557,6 @@ button.reset-btn:hover {
 }
 
 .fc-tab {
-  overflow: hidden;
-  text-overflow: ellipsis;
   flex: 1;
   background: #1e1e1e;
   border: none;
@@ -1602,6 +1605,9 @@ button.reset-btn:hover {
   gap: 12px;
   border-radius: 4px;
   border-left: 3px solid transparent;
+  min-height: 42px;
+  height: auto;
+  flex-shrink: 0;
 }
 
 .full-forecast-item.type-classic {
@@ -1625,12 +1631,21 @@ button.reset-btn:hover {
   min-width: 80px;
   text-align: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0; /* Badge stays fixed size */
+  align-self: flex-start; /* Align to top if text wraps */
+  margin-top: 2px;
 }
 
 .full-forecast-item .name {
   color: #ddd;
   font-size: 0.9rem;
   font-weight: 500;
+  white-space: normal; /* Enable wrapping */
+  overflow: visible;
+  text-overflow: clip; /* Remove dots */
+  word-break: break-word; /* Break long words if needed */
+  line-height: 1.3;
+  flex: 1; /* Take all space */
 }
 
 .full-forecast-item.is-intersected .name {
@@ -2587,38 +2602,56 @@ body.pip-window .empty-state {
 }
 
 #dungeon-sidebar .forecast-main-container {
-  height: auto; /* Changed from 100% to auto so it fits content */
+  height: auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   border: none;
-  background: transparent;
-  margin-top: 0;
+  background: #1a1a1a;
+  margin: 0;
+  min-height: 0;
 }
 
 #dungeon-sidebar #forecast-list-scrollable {
   max-height: none;
   height: auto; /* Allow it to grow naturally */
-  overflow: visible; /* Remove internal scrollbar */
+  overflow-y: auto;
+  overflow-x: hidden;
   flex: none; /* Don't force expansion */
   background: #1a1a1a;
   border-radius: 0 0 4px 4px;
   border: 1px solid #333;
   border-top: none;
   padding-bottom: 5px; /* Tiny padding at bottom of list */
+  flex: 1;
+  height: 100%;
 }
 
 #dungeon-sidebar #forecast-header-sticky {
+  flex-shrink: 0;
+  background: #252525;
   border: 1px solid #333;
   border-bottom: 2px solid #000;
   border-radius: 4px 4px 0 0;
-  position: sticky;
-  top: 0; /* Reset negative top if it was set */
+  position: sticky; /* Keeps the nav at top while scrolling sidebar */
+  top: -20px; /* Offset for sidebar padding */
   z-index: 10;
-  background: #222;
+  width: 100%;
 }
 
-#dungeon-sidebar .sidebar-content {
-  padding-top: 0; /* Remove padding to let sticky header hit top */
+/* Scrollbar Styling */
+#dungeon-sidebar #forecast-list-scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+#dungeon-sidebar #forecast-list-scrollable::-webkit-scrollbar-track {
+  background: #111;
+}
+#dungeon-sidebar #forecast-list-scrollable::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+#dungeon-sidebar #forecast-list-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #666;
 }
 
 /* Ensure footer buttons have consistent margins */
@@ -2629,20 +2662,38 @@ body.pip-window .empty-state {
   margin-right: 0;
 }
 
-/* --- Forecast Language Selector --- */
-.fc-lang-container {
+#dungeon-sidebar .sidebar-content {
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  padding: 6px;
-  background: #1a1a1a;
-  border-bottom: 1px solid #333;
+  flex-direction: column;
+  overflow: hidden !important; /* Disable generic sidebar scrolling */
+  padding: 0; /* Remove padding so header hits edges */
+  height: 100%;
 }
 
+/* 5. Bottom Controls (Pinned to bottom) */
+.fc-lang-container-bottom {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  padding: 15px 0;
+  border-top: 1px solid #333;
+  background: #1a1a1a;
+  z-index: 20;
+}
+
+/* Credit Text */
+#dungeon-sidebar .sidebar-content > div:nth-last-child(2) {
+  flex-shrink: 0;
+  background: #1a1a1a;
+  padding-bottom: 5px;
+}
+
+/* --- Forecast Language Buttons (Flags) --- */
 .fc-lang-btn {
   background: transparent;
   border: 2px solid transparent;
-  border-radius: 4px; /* Slight rounding */
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
   opacity: 0.4;
@@ -2650,8 +2701,11 @@ body.pip-window .empty-state {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: auto; /* Reset width so it fits content */
+  height: auto;
 }
 
+/* Constraints the image size */
 .fc-lang-btn img {
   width: 28px;
   height: auto;
@@ -2669,12 +2723,4 @@ body.pip-window .empty-state {
   border-color: var(--accent);
   background: rgba(0, 210, 255, 0.1);
   box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
-}
-.fc-lang-container-bottom {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  padding: 10px 0;
-  margin-top: 10px;
-  border-top: 1px solid #333;
 }
