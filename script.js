@@ -18,6 +18,7 @@ let trackerDirty = false;
 let fightHistory = []; // Stores objects: { damage: {}, healing: {}, armor: {} }
 let currentViewIndex = "live"; // 'live' or 0-4
 let hasUnsavedChanges = false; // Prevents duplicate saves
+let showTrackerFooter = localStorage.getItem("wakfu_show_totals") === "true";
 
 // 1. AUTO RESET DEFAULT (True unless user saved 'false')
 const storedReset = localStorage.getItem("wakfu_auto_reset");
@@ -785,15 +786,38 @@ function setTrackerFilter(filter) {
   renderTracker();
 }
 
+// Function to Toggle Footer
+function toggleTrackerTotals() {
+  showTrackerFooter = !showTrackerFooter;
+  localStorage.setItem("wakfu_show_totals", showTrackerFooter);
+  renderTracker(); // Re-render to apply display state
+}
+
 function renderTracker() {
   const listEl = getUI("tracker-list");
+  const footerEl = getUI("tracker-total-footer");
+  const toggleBtn = getUI("btn-toggle-totals");
+
   if (!listEl) return;
+
+  // 1. UPDATE FOOTER VISIBILITY
+  if (footerEl) {
+    footerEl.style.display = showTrackerFooter ? "flex" : "none";
+  }
+  if (toggleBtn) {
+    toggleBtn.style.background = showTrackerFooter ? "#333" : "transparent";
+    toggleBtn.style.borderColor = showTrackerFooter ? "#ffd700" : "#444";
+  }
 
   // Clear current UI
   listEl.innerHTML = "";
 
   if (trackedItems.length === 0) {
     listEl.innerHTML = '<div class="empty-state">Add items to track...</div>';
+    if (footerEl) {
+      document.getElementById("tf-val-current").textContent = "0 ₭";
+      document.getElementById("tf-val-target").textContent = "0 ₭";
+    }
     return;
   }
 
@@ -802,13 +826,29 @@ function renderTracker() {
 
   if (currentTrackerFilter !== "SHOW_ALL") {
     displayItems = trackedItems.filter((item) => {
-      // Trapper Filter: Shows items with profession 'Trapper' AND 'ALL' (Monster Drops)
       if (currentTrackerFilter === "Trapper") {
         return item.profession === "Trapper" || item.profession === "ALL";
       }
-      // Exact Match for others (Miner, Farmer, etc.)
       return item.profession === currentTrackerFilter;
     });
+  }
+
+  // --- CALCULATE TOTALS FOR FILTERED ITEMS ---
+  let totalCurVal = 0;
+  let totalTarVal = 0;
+
+  displayItems.forEach((item) => {
+    const p = item.price || 0;
+    totalCurVal += item.current * p;
+    totalTarVal += item.target * p;
+  });
+
+  // Update Footer Text
+  if (footerEl) {
+    document.getElementById("tf-val-current").textContent =
+      totalCurVal.toLocaleString() + " ₭";
+    document.getElementById("tf-val-target").textContent =
+      totalTarVal.toLocaleString() + " ₭";
   }
 
   if (displayItems.length === 0) {
@@ -847,11 +887,16 @@ function renderTracker() {
 
     // 3. BUILD TOOLTIP TEXT
     const usageInfo = getItemUsage(item.name);
+    // Add Price info to tooltip if set
+    const priceInfo = item.price
+      ? `\nValue: ${(item.current * item.price).toLocaleString()} ₭`
+      : "";
+
     const tooltipText = `${
       item.name
     }\nProgress: ${item.current.toLocaleString()} / ${item.target.toLocaleString()} (${Math.floor(
       progress
-    )}%)${usageInfo}`;
+    )}%)${priceInfo}${usageInfo}`;
 
     if (isGrid) {
       const slot = document.createElement("div");
@@ -3031,7 +3076,7 @@ function openTrackerModal(itemId) {
 
   const modal = document.getElementById("tracker-modal");
 
-  // MAIN ITEM ICON: Pointing to Local Folder img/items/
+  // MAIN ITEM ICON
   const itemIconPath =
     item.profession === "ALL" && item.imgId
       ? `img/items/${item.imgId}.png`
@@ -3046,16 +3091,53 @@ function openTrackerModal(itemId) {
     this.onerror = null;
   };
 
-  document.getElementById("modal-input-current").value = item.current;
-  document.getElementById("modal-input-target").value = item.target;
+  // Get Inputs
+  const curInput = document.getElementById("modal-input-current");
+  const tarInput = document.getElementById("modal-input-target");
+  const priceInput = document.getElementById("modal-input-price");
 
+  // Set Initial Values
+  curInput.value = item.current;
+  tarInput.value = item.target;
+  priceInput.value = item.price || 0;
+
+  // --- CALCULATION LOGIC ---
+  const calcCurrentEl = document.getElementById("modal-calc-current");
+  const calcTargetEl = document.getElementById("modal-calc-target");
+
+  function updateModalCalc() {
+    const c = parseInt(curInput.value) || 0;
+    const t = parseInt(tarInput.value) || 0;
+    const p = parseInt(priceInput.value) || 0;
+
+    const totalCur = c * p;
+    const totalTar = t * p;
+
+    // Append symbol here to ensure single text block alignment
+    calcCurrentEl.textContent = totalCur.toLocaleString() + " ₭";
+    calcTargetEl.textContent = totalTar.toLocaleString() + " ₭";
+  }
+
+  // Real-time listeners
+  curInput.oninput = updateModalCalc;
+  tarInput.oninput = updateModalCalc;
+  priceInput.oninput = updateModalCalc;
+
+  // Run calculation immediately
+  updateModalCalc();
+
+  // SAVE BUTTON
   document.getElementById("modal-save-btn").onclick = () => {
-    const newCur =
-      parseInt(document.getElementById("modal-input-current").value) || 0;
-    const newTar =
-      parseInt(document.getElementById("modal-input-target").value) || 0;
-    updateItemValue(item.id, "current", newCur);
-    updateItemValue(item.id, "target", newTar);
+    const newCur = parseInt(curInput.value) || 0;
+    const newTar = parseInt(tarInput.value) || 0;
+    const newPrice = parseInt(priceInput.value) || 0;
+
+    item.current = newCur;
+    item.target = newTar;
+    item.price = newPrice;
+
+    saveTrackerState();
+    renderTracker();
     closeTrackerModal();
   };
 

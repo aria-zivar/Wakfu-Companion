@@ -2724,3 +2724,101 @@ body.pip-window .empty-state {
   background: rgba(0, 210, 255, 0.1);
   box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
 }
+
+/* --- Modal Kama Stats --- */
+.kama-stats {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 12px 15px;
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kama-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-size: 0.85rem;
+  color: #bbb;
+}
+
+.kama-val-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; /* Aligns contents to the right */
+  gap: 5px; /* Space between number and symbol */
+  min-width: 120px; /* Prevents layout jumping */
+}
+
+#modal-calc-current,
+#modal-calc-target {
+  font-family: monospace;
+  font-weight: bold;
+  font-size: 1rem;
+  color: #ffd700; /* Gold */
+  text-align: right;
+}
+
+.kama-val {
+  font-family: monospace;
+  font-weight: bold;
+  font-size: 1rem;
+  color: #ffd700; /* Gold */
+  text-align: right; /* Crucial: Aligns text to the right side */
+  min-width: 120px; /* Optional: reserves space so it doesn't jump */
+}
+
+/* --- Tracker Footer Styles --- */
+.tracker-footer {
+  background: #1a1a1a;
+  border-top: 1px solid #333;
+  padding: 10px 15px;
+  display: flex;
+  justify-content: space-between; /* Spreads Current and Expected to edges */
+  align-items: center;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.2s ease-out;
+  flex-shrink: 0; /* Prevents shrinking */
+  gap: 20px;
+}
+
+.tf-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #252525;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid #333;
+  flex: 1; /* Equal width columns */
+  justify-content: space-between;
+}
+
+.tf-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #888;
+  font-weight: bold;
+}
+
+.tf-val {
+  font-family: monospace;
+  font-weight: bold;
+  color: #ffd700;
+  font-size: 0.95rem;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

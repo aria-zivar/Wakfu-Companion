@@ -327,7 +327,7 @@
               class="header-label-icon"
               onerror="this.style.display='none'"
             />
-            <span class="header-label">Item Tracker</span>
+            <span class="header-label">Tracker</span>
 
             <!-- NEW: Profession Filters -->
             <div class="tracker-filters">
@@ -417,6 +417,16 @@
               ↓
             </button>
 
+            <button
+              class="pip-btn"
+              id="btn-toggle-totals"
+              onclick="toggleTrackerTotals()"
+              title="Show/Hide Kama Totals"
+              style="margin-right: 5px; font-weight: bold; color: #ffd700"
+            >
+              ₭
+            </button>
+
             <!-- View Toggle Button -->
             <button
               class="pip-btn"
@@ -453,6 +463,21 @@
           </div>
           <div id="tracker-list">
             <div class="empty-state">Add items to track...</div>
+          </div>
+
+          <div
+            id="tracker-total-footer"
+            class="tracker-footer"
+            style="display: none"
+          >
+            <div class="tf-row">
+              <span class="tf-label">Current:</span>
+              <span id="tf-val-current" class="tf-val">0 ₭</span>
+            </div>
+            <div class="tf-row">
+              <span class="tf-label">Expected:</span>
+              <span id="tf-val-target" class="tf-val">0 ₭</span>
+            </div>
           </div>
 
           <div id="tracker-notifications"></div>
@@ -952,7 +977,7 @@
           <button class="close-modal" onclick="closeTrackerModal()">×</button>
         </div>
         <div class="modal-body">
-          <!-- Wrapped in input-row for side-by-side -->
+          <!-- Row 1: Counts -->
           <div class="input-row">
             <div class="input-group">
               <label>Current</label>
@@ -969,6 +994,33 @@
                 id="modal-input-target"
                 class="t-input modal-field"
               />
+            </div>
+          </div>
+
+          <!-- Row 2: Price -->
+          <div class="input-group" style="margin-top: 10px">
+            <label>Unit Price (Kamas)</label>
+            <input
+              type="number"
+              id="modal-input-price"
+              class="t-input modal-field"
+              placeholder="0"
+            />
+          </div>
+
+          <!-- Kama Stats Display -->
+          <div class="kama-stats">
+            <div class="kama-stat-row">
+              <span>Current Value:</span>
+              <div class="kama-val-wrapper">
+                <span id="modal-calc-current">0</span>
+              </div>
+            </div>
+            <div class="kama-stat-row">
+              <span>Expected Value:</span>
+              <div class="kama-val-wrapper">
+                <span id="modal-calc-target">0</span>
+              </div>
             </div>
           </div>
 
