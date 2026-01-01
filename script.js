@@ -13,6 +13,7 @@ let logLineCache = new Set();
 let allKnownSpells = new Set();
 const MAX_CACHE_SIZE = 50;
 const MAX_CHAT_HISTORY = 200;
+const MAX_FIGHT_HISTORY = 5;
 let trackerDirty = false;
 let fightHistory = []; // Stores objects: { damage: {}, healing: {}, armor: {} }
 let currentViewIndex = "live"; // 'live' or 0-4
