@@ -1,10 +1,5 @@
 // ==========================================
 // WAKFU PROFESSIONS DATABASE
-// Config:
-// - Baker: Base 400 (XP Multiplier 2)
-// - Chef: Base 600 (XP Multiplier 1)
-// - Others: Base 600
-// - Added Lv. 140 & Lv. 150 Ranges
 // ==========================================
 
 const PROFESSIONS_DATA = {

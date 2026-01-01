@@ -42,7 +42,7 @@ function updateProfessionIcon() {
     return;
   }
   const fileName = profName.toLowerCase().replace(/\s+/g, "_") + ".png";
-  img.src = `img/jobs/${fileName}`;
+  img.src = `./assets/img/jobs/${fileName}`;
   img.style.display = "block";
   img.onerror = function () {
     this.style.display = "none";
@@ -54,13 +54,13 @@ function getResourceIconPath(itemName) {
   if (typeof monsterResources !== "undefined") {
     const dropItem = monsterResources.find((i) => i.name === itemName);
     if (dropItem && dropItem.imgId) {
-      return `img/items/${dropItem.imgId}.png`;
+      return `./assets/img/items/${dropItem.imgId}.png`;
     }
   }
 
   // 2. Fallback to Name-based lookup
   // Useful for standard harvesting professions if they aren't in monsterResources
-  return `img/resources/${itemName.replace(/\s+/g, "_")}.png`;
+  return `./assets/img/resources/${itemName.replace(/\s+/g, "_")}.png`;
 }
 
 function calculateProfessionResources() {
@@ -176,7 +176,7 @@ function generateCardHTML(cardData) {
     ingredientsHTML += `
             <div class="ing-row">
                 <div class="ing-left">
-                     <img src="${ingIcon}" class="ing-icon" onerror="this.onerror=null; this.src='img/resources/not_found.png';">
+                     <img src="${ingIcon}" class="ing-icon" onerror="this.onerror=null; this.src='./assets/img/resources/not_found.png';">
                      <span>${ing.name} <span class="ing-multiplier">x${
       ing.qty
     }</span></span>
@@ -198,7 +198,7 @@ function generateCardHTML(cardData) {
   return `
         <div class="prof-recipe-card">
             <div class="recipe-card-header">
-                <img src="${iconPath}" class="recipe-card-icon" onerror="this.onerror=null; this.src='img/resources/not_found.png';">
+                <img src="${iconPath}" class="recipe-card-icon" onerror="this.onerror=null; this.src='./assets/img/resources/not_found.png';">
                 <div class="recipe-card-meta">
                     <div class="recipe-name">${cardData.recipeName}</div>
                     <div class="recipe-details">${cardData.levelLabel} • ${cardData.craftsCount} Crafts</div>
@@ -301,17 +301,5 @@ function addTrackedItemFromProfession(itemName, qtyNeeded) {
 
     if (typeof saveTrackerState === "function") saveTrackerState();
     renderTracker();
-  }
-}
-
-function toggleProfSidebar() {
-  const sidebar = document.getElementById("professions-sidebar");
-  const rightSidebar = document.getElementById("info-sidebar");
-
-  if (sidebar.classList.contains("open")) {
-    sidebar.classList.remove("open");
-  } else {
-    sidebar.classList.add("open");
-    if (rightSidebar) rightSidebar.classList.remove("open");
   }
 }

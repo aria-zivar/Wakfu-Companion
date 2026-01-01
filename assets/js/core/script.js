@@ -37,8 +37,8 @@ window.toggleIconVariant = function (playerName, imgEl) {
 
   // 3. Update Image Source Immediately
   const newSrc = playerVariantState[playerName]
-    ? `./img/classes/${className}-f.png`
-    : `./img/classes/${className}.png`;
+    ? `././assets/img/classes/${className}-f.png`
+    : `././assets/img/classes/${className}.png`;
   imgEl.src = newSrc;
 
   // 4. Clear Cache (So the next re-render generates the correct version)
@@ -90,7 +90,6 @@ const liveIndicator = document.getElementById("live-indicator");
 const chatList = document.getElementById("chat-list");
 const autoResetBtn = document.getElementById("autoResetToggle");
 const autoResetText = document.getElementById("autoResetText");
-const timerInput = document.getElementById("timerInput");
 const clearChatBtn = document.getElementById("clearChatBtn");
 
 // Setup Reconnect Elements
@@ -141,46 +140,6 @@ const UI_TRANSLATIONS = {
     pt: "MODULOX",
   },
 };
-
-function generateSpellMap() {
-  if (typeof classSpells === "undefined") return;
-  spellToClassMap = {};
-  allKnownSpells = new Set();
-
-  for (const [className, langData] of Object.entries(classSpells)) {
-    if (typeof langData === "object" && !Array.isArray(langData)) {
-      for (const spells of Object.values(langData)) {
-        if (Array.isArray(spells)) {
-          spells.forEach((spell) => {
-            spellToClassMap[spell] = className;
-            allKnownSpells.add(spell);
-          });
-        }
-      }
-    }
-  }
-
-  // --- MANUAL INJECTIONS (Feedback Fixes) ---
-  // Forces these spells to be attributed to the Class, not the Summon/Doll
-
-  // SADIDA TOXINS & DOLL SPELLS
-  const sadidaSpells = [
-    "Harmless Toxin",
-    "Toxine inoffensive",
-    "Toxina inofensiva",
-    // Removed "Furtive" - it's a debuff, not a D/H/A source
-    "Tetatoxin",
-    "Tétatoxine", // Tetatoxin
-    "Venomous",
-    "Venimeux", // Venomous state
-    "Liquid Ghoul", // The Greedy spell
-  ];
-
-  sadidaSpells.forEach((s) => (spellToClassMap[s] = "sadida"));
-
-  // ECAFLIP
-  spellToClassMap["Blackjack"] = "ecaflip";
-}
 
 function showTooltip(text, e) {
   // Determine which document we are in (Main or PiP)
@@ -532,70 +491,6 @@ function initTrackerDropdowns() {
   setTrackerFilter(currentTrackerFilter);
 }
 
-function addTrackedItem() {
-  const itemInput = document.getElementById("item-input");
-  const itemName = itemInput.value.trim();
-  if (!itemName) return alert("Type an item name first.");
-
-  let foundItem = null;
-  let category = null;
-
-  // Search through gathering jobs
-  for (const prof in professionItems) {
-    const item = professionItems[prof].find(
-      (i) => i.name.toLowerCase() === itemName.toLowerCase()
-    );
-    if (item) {
-      foundItem = item;
-      category = prof;
-      break;
-    }
-  }
-
-  // If not found, search the monster item list
-  if (!foundItem && typeof monsterResources !== "undefined") {
-    const item = monsterResources.find(
-      (i) => i.name.toLowerCase() === itemName.toLowerCase()
-    );
-    if (item) {
-      foundItem = item;
-      category = "ALL";
-    }
-  }
-
-  if (!foundItem) return alert(`Item "${itemName}" not found in database.`);
-
-  // Duplication check
-  if (
-    trackedItems.find(
-      (t) => t.name === foundItem.name && t.rarity === foundItem.rarity
-    )
-  ) {
-    return alert("Item already on tracking list.");
-  }
-
-  const target = prompt(
-    `Tracking ${foundItem.name}. Enter target quantity:`,
-    "100"
-  );
-  if (target === null) return;
-
-  trackedItems.push({
-    id: Date.now(),
-    name: foundItem.name,
-    current: 0,
-    target: parseInt(target) || 100,
-    level: foundItem.level,
-    rarity: foundItem.rarity,
-    profession: category, // Saves if it's Miner, ALL, etc.
-    imgId: foundItem.imgId || null,
-  });
-
-  itemInput.value = "";
-  saveTrackerState();
-  renderTracker();
-}
-
 // --- View Toggle ---
 function toggleTrackerView() {
   trackerViewMode = trackerViewMode === "grid" ? "list" : "grid";
@@ -880,15 +775,15 @@ function renderTracker() {
       profNameRaw === "ALL"
         ? "monster_resource"
         : profNameRaw.toLowerCase().replace(/\s+/g, "_");
-    const profIconPath = `img/resources/${profFilename}.png`;
+    const profIconPath = `./assets/img/resources/${profFilename}.png`;
 
     // 2. MAIN ITEM ICON
     let itemIconPath;
     if (item.profession === "ALL" && item.imgId) {
-      itemIconPath = `img/items/${item.imgId}.png`;
+      itemIconPath = `./assets/img/items/${item.imgId}.png`;
     } else {
       const safeItemName = item.name.replace(/\s+/g, "_");
-      itemIconPath = `img/resources/${safeItemName}.png`;
+      itemIconPath = `./assets/img/resources/${safeItemName}.png`;
     }
 
     const rarityName = (item.rarity || "common").toLowerCase();
@@ -927,7 +822,7 @@ function renderTracker() {
                 })">×</button>
                 <img src="${profIconPath}" class="slot-prof-icon" onerror="this.style.display='none'">
                 <img src="${itemIconPath}" class="slot-icon" 
-                     onerror="this.onerror=null; this.src='img/resources/not_found.png';">
+                     onerror="this.onerror=null; this.src='./assets/img/resources/not_found.png';">
                 <div class="slot-count">${item.current.toLocaleString()}</div>
                 <div class="slot-progress-container">
                     <div class="slot-progress-bar" style="width: ${progress}%"></div>
@@ -949,9 +844,9 @@ function renderTracker() {
                   item.id
                 })">
                     <img src="${itemIconPath}" class="resource-icon" 
-                         onerror="this.onerror=null; this.src='img/resources/not_found.png';">
+                         onerror="this.onerror=null; this.src='./assets/img/resources/not_found.png';">
                     <div class="t-info-text">
-                        <img src="img/quality/${rarityName}.png" class="rarity-icon" onerror="this.style.display='none'">
+                        <img src="./assets/img/quality/${rarityName}.png" class="rarity-icon" onerror="this.style.display='none'">
                         <span class="t-level-badge">Lvl. ${item.level}</span>
                         <span class="t-item-name">${item.name}</span>
                     </div>
@@ -1044,36 +939,6 @@ function handleTrackDragEnd(e) {
   const rows = document.querySelectorAll(".tracked-item-row");
   rows.forEach((row) => row.classList.remove("drag-over"));
   dragSrcIndex = null;
-}
-
-function processItemLog(line) {
-  // Target: "You have picked up 92x Taroudium Ore . "
-  // Regex looks for digits, then 'x', then grabs everything until a period or multiple spaces
-  const match = line.match(/picked up (\d+)x\s+([^.]+)/i);
-
-  if (match) {
-    const qty = parseInt(match[1], 10);
-    // Clean name: handle non-breaking spaces and trim any extra junk
-    const cleanLogName = match[2]
-      .replace(/\u00A0/g, " ")
-      .trim()
-      .toLowerCase();
-
-    let updated = false;
-    trackedItems.forEach((item) => {
-      // Comparison: ensure the database name matches exactly what we found
-      if (item.name.toLowerCase().trim() === cleanLogName) {
-        item.current += qty;
-        updated = true;
-        showTrackerNotification(qty, item.name);
-      }
-    });
-
-    if (updated) {
-      saveTrackerState();
-      renderTracker();
-    }
-  }
 }
 
 // Helper to find elements in either the main document or the PiP document
@@ -1328,8 +1193,8 @@ function processItemLog(line) {
 
         const iconPath =
           item.profession === "ALL" && item.imgId
-            ? `img/items/${item.imgId}.png`
-            : `img/resources/${item.name.replace(/\s+/g, "_")}.png`;
+            ? `./assets/img/items/${item.imgId}.png`
+            : `./assets/img/resources/${item.name.replace(/\s+/g, "_")}.png`;
 
         // 2. Windows Notification (Optional)
         if (typeof sendWindowsNotification === "function") {
@@ -1349,7 +1214,7 @@ function processItemLog(line) {
             showTrackerNotification(null, item.name, true);
           }, 200);
 
-          const goalSound = new Audio("sfx/tracking_completed.mp3");
+          const goalSound = new Audio("./assets/sfx/tracking_completed.mp3");
           goalSound.volume = 0.05;
           goalSound.play().catch((e) => {});
         }
@@ -1408,32 +1273,6 @@ function detectClass(playerName, spellName) {
       delete playerIconCache[playerName];
     }
   }
-}
-
-function isPlayerAlly(p, contextClasses = null, contextOverrides = null) {
-  const classesMap = contextClasses || playerClasses;
-  const overridesMap = contextOverrides || manualOverrides;
-
-  // 1. Manual overrides (Drag & Drop)
-  if (overridesMap[p.name]) return overridesMap[p.name] === "ally";
-
-  // 2. Check Enemy DB first (Strict)
-  if (typeof wakfuEnemies !== "undefined") {
-    const isEnemy = wakfuEnemies.some((fam) =>
-      p.name.toLowerCase().includes(fam.toLowerCase())
-    );
-    if (isEnemy || p.name.includes("Punchy") || p.name.includes("Papas"))
-      return false;
-  }
-
-  // 3. Class Detection (Using the appropriate map)
-  if (classesMap[p.name]) return true;
-
-  // 4. Summons
-  if (typeof allySummons !== "undefined" && allySummons.includes(p.name))
-    return true;
-
-  return false; // Default to Enemy
 }
 
 // ==========================================
@@ -2024,7 +1863,7 @@ function renderMeter() {
         const monsterImgId = monsterLookup[lowerName];
 
         if (monsterImgId) {
-          iconHtml = `<img src="./img/monsters/${monsterImgId}" class="class-icon" onerror="this.src='./img/classes/not_found.png';">`;
+          iconHtml = `<img src="././assets/img/monsters/${monsterImgId}" class="class-icon" onerror="this.src='././assets/img/classes/not_found.png';">`;
         } else {
           // USE CONTEXT CLASSES
           const classIconName = sourceClasses[p.name];
@@ -2032,16 +1871,16 @@ function renderMeter() {
             // Use global variant state for toggle interaction, but history class source
             const isAlt = playerVariantState[p.name];
             const currentSrc = isAlt
-              ? `./img/classes/${classIconName}-f.png`
-              : `./img/classes/${classIconName}.png`;
+              ? `././assets/img/classes/${classIconName}-f.png`
+              : `././assets/img/classes/${classIconName}.png`;
 
             // Note: toggling variant in history won't persist to the history snapshot object, which is fine
             iconHtml = `<img src="${currentSrc}" class="class-icon" onmouseover="toggleIconVariant('${p.name.replace(
               /'/g,
               "\\'"
-            )}', this)" onerror="this.src='./img/classes/not_found.png';">`;
+            )}', this)" onerror="this.src='././assets/img/classes/not_found.png';">`;
           } else {
-            iconHtml = `<img src="./img/classes/not_found.png" class="class-icon">`;
+            iconHtml = `<img src="././assets/img/classes/not_found.png" class="class-icon">`;
           }
         }
 
@@ -2131,7 +1970,7 @@ function renderMeter() {
           const spellContribPercent =
             p.total > 0 ? ((s.val / p.total) * 100).toFixed(1) + "%" : "0.0%";
           let iconName = (s.element || "neutral").toLowerCase();
-          const iconHtmlSpell = `<img src="./img/elements/${iconName}.png" class="spell-icon" onerror="this.src='./img/elements/neutral.png'">`;
+          const iconHtmlSpell = `<img src="././assets/img/elements/${iconName}.png" class="spell-icon" onerror="this.src='././assets/img/elements/neutral.png'">`;
 
           const spellRow = document.createElement("div");
           spellRow.className = "spell-row";
@@ -2793,22 +2632,22 @@ function renderForecastUI() {
         <button class="fc-lang-btn ${
           currentForecastLang === "en" ? "active" : ""
         }" onclick="setForecastLanguage('en')" title="English">
-            <img src="img/flags/en.png" alt="GB">
+            <img src="./assets/img/flags/en.png" alt="GB">
         </button>
         <button class="fc-lang-btn ${
           currentForecastLang === "es" ? "active" : ""
         }" onclick="setForecastLanguage('es')" title="Español">
-            <img src="img/flags/es.png" alt="ES">
+            <img src="./assets/img/flags/es.png" alt="ES">
         </button>
         <button class="fc-lang-btn ${
           currentForecastLang === "fr" ? "active" : ""
         }" onclick="setForecastLanguage('fr')" title="Français">
-            <img src="img/flags/fr.png" alt="FR">
+            <img src="./assets/img/flags/fr.png" alt="FR">
         </button>
         <button class="fc-lang-btn ${
           currentForecastLang === "pt" ? "active" : ""
         }" onclick="setForecastLanguage('pt')" title="Português">
-            <img src="img/flags/pt.png" alt="BR">
+            <img src="./assets/img/flags/pt.png" alt="BR">
         </button>
       `;
   }
@@ -3024,19 +2863,19 @@ async function togglePiP(elementId, title) {
                 <div id="pip-tab-damage" class="pip-tab ${
                   activeMeterMode === "damage" ? "active-dmg" : ""
                 }" onclick="switchMeterMode('damage')">
-                    <img src="./img/headers/damage.png" class="tab-icon">
+                    <img src="././assets/img/headers/damage.png" class="tab-icon">
                     <span>DMG</span>
                 </div>
                 <div id="pip-tab-healing" class="pip-tab ${
                   activeMeterMode === "healing" ? "active-heal" : ""
                 }" onclick="switchMeterMode('healing')">
-                    <img src="./img/headers/healing.png" class="tab-icon">
+                    <img src="././assets/img/headers/healing.png" class="tab-icon">
                     <span>HEALING</span>
                 </div>
                 <div id="pip-tab-armor" class="pip-tab ${
                   activeMeterMode === "armor" ? "active-armor" : ""
                 }" onclick="switchMeterMode('armor')">
-                    <img src="./img/headers/armor.png" class="tab-icon">
+                    <img src="././assets/img/headers/armor.png" class="tab-icon">
                     <span>ARMOR</span>
                 </div>
             `;
@@ -3087,15 +2926,15 @@ function openTrackerModal(itemId) {
   // MAIN ITEM ICON
   const itemIconPath =
     item.profession === "ALL" && item.imgId
-      ? `img/items/${item.imgId}.png`
-      : `img/resources/${item.name.replace(/\s+/g, "_")}.png`;
+      ? `./assets/img/items/${item.imgId}.png`
+      : `./assets/img/resources/${item.name.replace(/\s+/g, "_")}.png`;
 
   document.getElementById("modal-item-name").textContent = item.name;
   const modalIcon = document.getElementById("modal-item-icon");
   modalIcon.src = itemIconPath;
 
   modalIcon.onerror = function () {
-    this.src = "img/resources/not_found.png";
+    this.src = "./assets/img/resources/not_found.png";
     this.onerror = null;
   };
 

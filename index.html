@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nexus Wakfu Companion</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="assets/css/style.css" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
   </head>
   <body>
@@ -141,7 +141,7 @@
               onclick="switchMeterMode('damage')"
             >
               <img
-                src="./img/headers/damage.png"
+                src="./assets/img/headers/damage.png"
                 class="tab-icon"
                 onerror="this.style.display='none'"
               />
@@ -153,7 +153,7 @@
               onclick="switchMeterMode('healing')"
             >
               <img
-                src="./img/headers/healing.png"
+                src="./assets/img/headers/healing.png"
                 class="tab-icon"
                 onerror="this.style.display='none'"
               />
@@ -165,7 +165,7 @@
               onclick="switchMeterMode('armor')"
             >
               <img
-                src="./img/headers/armor.png"
+                src="./assets/img/headers/armor.png"
                 class="tab-icon"
                 onerror="this.style.display='none'"
               />
@@ -255,7 +255,7 @@
               <div class="half-header header-allies">
                 <div class="header-title-group">
                   <img
-                    src="./img/headers/allies.png"
+                    src="./assets/img/headers/allies.png"
                     class="header-icon"
                     onerror="this.style.display='none'"
                   />
@@ -290,7 +290,7 @@
               <div class="half-header header-enemies">
                 <div class="header-title-group">
                   <img
-                    src="./img/headers/enemies.png"
+                    src="./assets/img/headers/enemies.png"
                     class="header-icon"
                     onerror="this.style.display='none'"
                   />
@@ -323,7 +323,7 @@
         <div class="tool-panel">
           <div class="panel-header">
             <img
-              src="./img/headers/item_tracker.png"
+              src="./assets/img/headers/item_tracker.png"
               class="header-label-icon"
               onerror="this.style.display='none'"
             />
@@ -346,7 +346,7 @@
                 title="Farmer"
               >
                 <img
-                  src="img/resources/farmer.png"
+                  src="./assets/img/resources/farmer.png"
                   onerror="this.style.display='none'"
                 />
               </button>
@@ -357,7 +357,7 @@
                 title="Fisherman"
               >
                 <img
-                  src="img/resources/fisherman.png"
+                  src="./assets/img/resources/fisherman.png"
                   onerror="this.style.display='none'"
                 />
               </button>
@@ -368,7 +368,7 @@
                 title="Herbalist"
               >
                 <img
-                  src="img/resources/herbalist.png"
+                  src="./assets/img/resources/herbalist.png"
                   onerror="this.style.display='none'"
                 />
               </button>
@@ -379,7 +379,7 @@
                 title="Lumberjack"
               >
                 <img
-                  src="img/resources/lumberjack.png"
+                  src="./assets/img/resources/lumberjack.png"
                   onerror="this.style.display='none'"
                 />
               </button>
@@ -390,7 +390,7 @@
                 title="Miner"
               >
                 <img
-                  src="img/resources/miner.png"
+                  src="./assets/img/resources/miner.png"
                   onerror="this.style.display='none'"
                 />
               </button>
@@ -401,7 +401,7 @@
                 title="Trapper"
               >
                 <img
-                  src="img/resources/trapper.png"
+                  src="./assets/img/resources/trapper.png"
                   onerror="this.style.display='none'"
                 />
               </button>
@@ -487,7 +487,7 @@
         <div class="tool-panel">
           <div class="panel-header">
             <img
-              src="./img/headers/chat.png"
+              src="./assets/img/headers/chat.png"
               class="header-label-icon"
               onerror="this.style.display='none'"
             />
@@ -630,7 +630,7 @@
           "
         >
           <img
-            src="./img/headers/chat.png"
+            src="./assets/img/headers/chat.png"
             style="width: 24px; height: 24px; object-fit: contain"
             onerror="this.style.display='none'"
           />
@@ -782,7 +782,7 @@
           <h4 onclick="toggleSidebarSection('sec-daily')">
             <div class="header-left">
               <img
-                src="img/headers/daily_missions.png"
+                src="./assets/img/headers/daily_missions.png"
                 class="header-label-icon"
                 onerror="this.style.display='none'"
               />
@@ -873,7 +873,7 @@
           <h4 onclick="toggleSidebarSection('sec-relics')">
             <div class="header-left">
               <img
-                src="img/headers/relic_fragments.png"
+                src="./assets/img/headers/relic_fragments.png"
                 class="header-label-icon"
                 onerror="this.style.display='none'"
               />
@@ -1132,14 +1132,16 @@
       </div>
     </div>
 
-    <!-- LOAD DATABASE FIRST -->
-    <script src="database.js"></script>
-    <script src="forecast_data.js"></script>
-    <script src="items.js"></script>
-    <script src="wakfu_monsters.js"></script>
-    <script src="professions_data.js"></script>
-    <script src="professions.js"></script>
-    <script src="script.js"></script>
+    <!-- Load Data First -->
+    <script src="assets/js/data/database.js"></script>
+    <script src="assets/js/data/forecast_data.js"></script>
+    <script src="assets/js/data/items.js"></script>
+    <script src="assets/js/data/wakfu_monsters.js"></script>
+    <script src="assets/js/data/professions_data.js"></script>
+
+    <!-- Load Logic Second -->
+    <script src="assets/js/core/professions.js"></script>
+    <script src="assets/js/core/script.js"></script>
 
     <!-- BUY ME A COFFEE WIDGET -->
     <script
