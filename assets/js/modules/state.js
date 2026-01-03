@@ -53,7 +53,9 @@ let playerClasses = {}; // Map player Name -> Class Icon Filename
 let summonBindings = {}; // Map: SummonName -> MasterName
 let playerIconCache = {}; // Cache for icon HTML strings to avoid re-calc
 let playerVariantState = {}; // Stores true/false for gender toggle
-let manualOverrides = {}; // Map player Name -> 'ally' | 'enemy'
+let manualOverrides = JSON.parse(
+  localStorage.getItem("wakfu_overrides") || "{}"
+); // Map player Name -> 'ally' | 'enemy'
 let activeMeterMode = "damage"; // 'damage', 'healing', 'armor'
 let currentCaster = "Unknown";
 let currentSpell = "Unknown Spell";

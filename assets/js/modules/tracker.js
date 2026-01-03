@@ -1,5 +1,4 @@
 let dragSrcIndex = null;
-
 let sortDirection = 1; // 1 = Ascending, -1 = Descending
 
 const PROFESSION_SORT_ORDER = {
@@ -46,6 +45,62 @@ function initTrackerDropdowns() {
   // 3. RESTORE SAVED FILTER ON LOAD
   // We call this last to apply the visual filter to the loaded items
   setTrackerFilter(currentTrackerFilter);
+}
+
+function processItemLog(line) {
+  // Regex: Matches "picked up 92x Item Name" handling trailing dots/spaces
+  const match = line.match(/picked up (\d+)x\s+([^.]+)/i);
+
+  if (match) {
+    const qty = parseInt(match[1], 10);
+    const cleanLogName = match[2]
+      .replace(/\u00A0/g, " ")
+      .trim()
+      .toLowerCase();
+
+    let updated = false;
+    trackedItems.forEach((item) => {
+      if (item.name.toLowerCase().trim() === cleanLogName) {
+        // 1. Check status BEFORE adding
+        const wasComplete = item.current >= item.target;
+
+        item.current += qty;
+        updated = true;
+
+        const iconPath =
+          item.profession === "ALL" && item.imgId
+            ? `./assets/img/items/${item.imgId}.png`
+            : `./assets/img/resources/${item.name.replace(/\s+/g, "_")}.png`;
+
+        // 2. Windows Notification (Optional)
+        if (typeof sendWindowsNotification === "function") {
+          sendWindowsNotification(
+            "Item Collected",
+            `+${qty} ${item.name} (${item.current}/${item.target})`,
+            iconPath
+          );
+        }
+
+        // 3. Standard UI Toast
+        showTrackerNotification(qty, item.name, false);
+
+        // 4. Goal Reached Logic
+        if (!wasComplete && item.current >= item.target) {
+          setTimeout(() => {
+            showTrackerNotification(null, item.name, true);
+          }, 200);
+
+          const goalSound = new Audio("./assets/sfx/tracking_completed.mp3");
+          goalSound.volume = 0.05;
+          goalSound.play().catch((e) => {});
+        }
+      }
+    });
+
+    if (updated) {
+      trackerDirty = true;
+    }
+  }
 }
 
 // --- View Toggle ---

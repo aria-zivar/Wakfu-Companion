@@ -544,82 +544,6 @@ function updateWatchdogUI() {
   }
 }
 
-function addChatMessage(time, channel, author, message) {
-  const emptyState = chatList.querySelector(".empty-state");
-  if (emptyState) chatList.innerHTML = "";
-
-  // Prune old messages if we exceed the limit
-  while (chatList.children.length >= MAX_CHAT_HISTORY) {
-    chatList.removeChild(chatList.firstChild);
-  }
-
-  const div = document.createElement("div");
-  div.className = "chat-msg";
-
-  // 1. Get Category (Multi-language logic)
-  const category = getCategoryFromChannel(channel);
-  div.setAttribute("data-category", category);
-
-  // 2. Get Color based on that Category
-  const color = getChannelColor(category);
-
-  // Optimization: Don't set style.display if default is block, handles CSS better
-  if (
-    currentChatFilter !== "all" &&
-    category !== "vicinity" &&
-    category !== "private" &&
-    category !== currentChatFilter
-  ) {
-    div.style.display = "none";
-  }
-
-  const transId =
-    "trans-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
-  const channelTag = `[${channel}]`;
-
-  // --- NGame Log Number Highlighting ---
-  let displayMessage = message;
-  // Check if channel contains "Log" (Game Log, Combat Log, etc.) or is Information
-  if (
-    channel.toLowerCase().includes("log") ||
-    channel.toLowerCase().includes("info")
-  ) {
-    // Regex matches: Optional +/- start, digits, optional comma/dot separators
-    displayMessage = message.replace(
-      /(?:\+|-)?\d+(?:[.,]\d+)*/g,
-      '<span class="game-log-number">$&</span>'
-    );
-  }
-  // -----------------------------------------
-
-  // Use efficient template literal
-  div.innerHTML = `
-        <div class="chat-meta">
-            <span class="chat-time">${time}</span>
-            <span class="chat-channel" style="color:${color}">${channelTag}</span>
-            <span class="chat-author" style="color:${color}">${author}</span>
-            <button class="manual-trans-btn" onclick="queueTranslation('${message.replace(
-              /'/g,
-              "\\'"
-            )}', '${transId}', true)">T</button>
-        </div>
-        <div class="chat-content">${displayMessage}</div>
-        <div id="${transId}" class="translated-block" style="display:none;"></div>
-    `;
-
-  chatList.appendChild(div);
-
-  chatList.scrollTop = chatList.scrollHeight;
-
-  // Translation logic...
-  if (transConfig.enabled) {
-    if (channel.includes("(PT)") && !transConfig.pt) return;
-    if (channel.includes("(FR)") && !transConfig.fr) return;
-    if (channel.includes("(ES)") && !transConfig.es) return;
-    queueTranslation(message, transId, false);
-  }
-}
-
 function setupDragAndDrop() {
   const alliesList = document.getElementById("list-allies");
   const enemiesList = document.getElementById("list-enemies");
@@ -642,8 +566,19 @@ function setupDragAndDrop() {
 
       const targetType = list.id === "list-allies" ? "ally" : "enemy";
 
-      // Set Manual Override
+      // 1. Set Manual Override
       manualOverrides[playerName] = targetType;
+
+      // 2. PERSIST to LocalStorage
+      try {
+        localStorage.setItem(
+          "wakfu_overrides",
+          JSON.stringify(manualOverrides)
+        );
+      } catch (e) {
+        console.warn("Failed to save overrides locally");
+      }
+
       renderMeter();
     });
   });

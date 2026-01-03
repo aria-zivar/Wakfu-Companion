@@ -1,3 +1,77 @@
+// LANGUAGE HEURISTICS
+const ES_UNIQUE = new Set([
+  "y",
+  "el",
+  "la",
+  "los",
+  "las",
+  "en",
+  "un",
+  "una",
+  "es",
+  "del",
+  "al",
+  "lo",
+  "le",
+  "su",
+  "sus",
+  "pero",
+  "con",
+  "sin",
+  "muy",
+  "mi",
+  "mis",
+  "ti",
+  "si",
+  "bien",
+  "bueno",
+  "yo",
+  "tu",
+  "él",
+  "ella",
+  "nosotros",
+  "ellos",
+  "ellas",
+  "usted",
+]);
+const PT_UNIQUE = new Set([
+  "e",
+  "o",
+  "os",
+  "as",
+  "em",
+  "um",
+  "uma",
+  "é",
+  "do",
+  "ao",
+  "da",
+  "na",
+  "no",
+  "dos",
+  "das",
+  "nas",
+  "nos",
+  "seu",
+  "sua",
+  "com",
+  "sem",
+  "muito",
+  "minha",
+  "teu",
+  "tua",
+  "ele",
+  "ela",
+  "nós",
+  "eles",
+  "elas",
+  "você",
+  "bom",
+  "boa",
+  "não",
+  "são",
+]);
+
 function getChannelColor(channelName) {
   if (channelName.includes("Vicinity")) return CHAT_COLORS.Vicinity;
   if (channelName.includes("Private") || channelName.includes("Whisper"))
@@ -10,6 +84,122 @@ function getChannelColor(channelName) {
   if (channelName.includes("Community")) return CHAT_COLORS.Community;
   if (channelName.includes("Recruitment")) return CHAT_COLORS.Recruitment;
   return CHAT_COLORS.Default;
+}
+
+function processChatLog(line) {
+  const parts = line.split(" - ");
+  if (parts.length < 2) return;
+
+  const rawTime = parts[0].split(",")[0];
+  const localTime = formatLocalTime(rawTime);
+  const rest = parts.slice(1).join(" - ");
+
+  let channel = "General";
+  let author = "";
+  let message = rest;
+
+  const bracketMatch = rest.match(/^\[(.*?)\] (.*)/);
+  if (bracketMatch) {
+    channel = bracketMatch[1];
+    const contentAfter = bracketMatch[2];
+    const authorSplit = contentAfter.indexOf(" : ");
+    if (authorSplit !== -1) {
+      author = contentAfter.substring(0, authorSplit);
+      message = contentAfter.substring(authorSplit + 3);
+    } else {
+      message = contentAfter;
+    }
+  } else {
+    const authorSplit = rest.indexOf(" : ");
+    if (authorSplit !== -1) {
+      author = rest.substring(0, authorSplit);
+      message = rest.substring(authorSplit + 3);
+      if (channel === "General") channel = "Vicinity";
+    }
+  }
+
+  // --- SMART FILTERING OPTIMIZATION ---
+  // If the channel explicitly tags the language (e.g. "[Recruitment (ES)]"),
+  // and that language is DISABLED in settings, we flag this message to SKIP translation.
+
+  let shouldSkipAutoTrans = false;
+  const chanLower = channel.toLowerCase();
+
+  if (transConfig.enabled) {
+    if (chanLower.includes("(es)") && !transConfig.es)
+      shouldSkipAutoTrans = true;
+    else if (chanLower.includes("(fr)") && !transConfig.fr)
+      shouldSkipAutoTrans = true;
+    else if (chanLower.includes("(pt)") && !transConfig.pt)
+      shouldSkipAutoTrans = true;
+  }
+
+  addChatMessage(localTime, channel, author, message, shouldSkipAutoTrans);
+}
+
+function addChatMessage(time, channel, author, message, skipAuto = false) {
+  const emptyState = chatList.querySelector(".empty-state");
+  if (emptyState) chatList.innerHTML = "";
+
+  while (chatList.children.length >= MAX_CHAT_HISTORY) {
+    chatList.removeChild(chatList.firstChild);
+  }
+
+  const div = document.createElement("div");
+  div.className = "chat-msg";
+
+  const category = getCategoryFromChannel(channel);
+  div.setAttribute("data-category", category);
+
+  const color = getChannelColor(category);
+
+  if (
+    currentChatFilter !== "all" &&
+    category !== "vicinity" &&
+    category !== "private" &&
+    category !== currentChatFilter
+  ) {
+    div.style.display = "none";
+  }
+
+  const transId =
+    "trans-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+  const channelTag = `[${channel}]`;
+
+  // Game Log Number Highlighting
+  let displayMessage = message;
+  if (
+    channel.toLowerCase().includes("log") ||
+    channel.toLowerCase().includes("info")
+  ) {
+    displayMessage = message.replace(
+      /(?:\+|-)?\d+(?:[.,]\d+)*/g,
+      '<span class="game-log-number">$&</span>'
+    );
+  }
+
+  div.innerHTML = `
+        <div class="chat-meta">
+            <span class="chat-time">${time}</span>
+            <span class="chat-channel" style="color:${color}">${channelTag}</span>
+            <span class="chat-author" style="color:${color}">${author}</span>
+            <button class="manual-trans-btn" onclick="queueTranslation('${message.replace(
+              /'/g,
+              "\\'"
+            )}', '${transId}', true)">T</button>
+        </div>
+        <div class="chat-content">${displayMessage}</div>
+        <div id="${transId}" class="translated-block" style="display:none;"></div>
+    `;
+
+  chatList.appendChild(div);
+  chatList.scrollTop = chatList.scrollHeight;
+
+  // Translation Queuing
+  // Only queue if Master Switch is ON AND the channel check didn't flag it to skip
+  if (transConfig.enabled && !skipAuto) {
+    queueTranslation(message, transId, false);
+  }
 }
 
 function setChatFilter(filter) {
@@ -151,6 +341,11 @@ async function processTranslationQueue() {
   translationQueue.shift();
 
   try {
+    // 1. Short Text Filter: Skip ambiguous short words (unless manual)
+    if (!item.isManual && item.text.length < 3) {
+      throw new Error("Text too short");
+    }
+
     if (item.text.length < 500) {
       const result = await fetchTranslation(item.text);
       if (result) {
@@ -160,20 +355,42 @@ async function processTranslationQueue() {
         if (item.isManual) {
           show = true;
         } else {
-          if (transConfig.pt && (l === "pt" || l.startsWith("pt-")))
-            show = true;
-          else if (transConfig.fr && (l === "fr" || l.startsWith("fr-")))
-            show = true;
-          else if (transConfig.es && (l === "es" || l.startsWith("es-")))
-            show = true;
-          else if (l === "en" || l.startsWith("en-")) show = false;
-          else if (transConfig.others) {
-            if (
-              !l.startsWith("pt") &&
-              !l.startsWith("fr") &&
-              !l.startsWith("es")
-            )
+          // --- SMART LANGUAGE FILTERING ---
+
+          // Case 1: Detected PT, but User speaks ES (ES disabled)
+          // Problem: "Nunca se sabe" detected as PT, but is also ES.
+          if (l === "pt" || l.startsWith("pt-")) {
+            if (transConfig.pt) {
               show = true;
+              // Heuristic: If ES is disabled (User knows ES),
+              // only show if it looks STRICTLY Portuguese.
+              if (!transConfig.es) {
+                const scores = checkLanguageFeatures(item.text);
+                // If it has ES features or NO specific PT features, hide it.
+                if (scores.es > scores.pt || scores.pt === 0) show = false;
+              }
+            }
+          }
+
+          // Case 2: Detected ES, but User speaks PT (PT disabled)
+          else if (l === "es" || l.startsWith("es-")) {
+            if (transConfig.es) {
+              show = true;
+              if (!transConfig.pt) {
+                const scores = checkLanguageFeatures(item.text);
+                if (scores.pt > scores.es || scores.es === 0) show = false;
+              }
+            }
+          }
+
+          // Case 3: French
+          else if (l === "fr" || l.startsWith("fr-")) {
+            if (transConfig.fr) show = true;
+          }
+
+          // Case 4: Others (Everything else not English)
+          else if (transConfig.others && !l.startsWith("en")) {
+            show = true;
           }
         }
 
@@ -186,7 +403,9 @@ async function processTranslationQueue() {
         }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    // Silent catch
+  }
 
   isTranslating = false;
   setTimeout(processTranslationQueue, 50);
@@ -345,4 +564,24 @@ function updateLangButtons() {
     btnMaster.className = "lang-btn master-off";
     btnMaster.textContent = "DISABLED";
   }
+}
+
+function checkLanguageFeatures(text) {
+  const words = text
+    .toLowerCase()
+    .replace(/[^\w\s\u00C0-\u00FF]/g, "")
+    .split(/\s+/);
+  let esScore = 0;
+  let ptScore = 0;
+
+  words.forEach((w) => {
+    if (ES_UNIQUE.has(w)) esScore++;
+    if (PT_UNIQUE.has(w)) ptScore++;
+
+    // Character checks
+    if (w.includes("ñ") || w.includes("¿") || w.includes("¡")) esScore += 5;
+    if (w.includes("ç") || w.includes("ã") || w.includes("õ")) ptScore += 5;
+  });
+
+  return { es: esScore, pt: ptScore };
 }

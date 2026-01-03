@@ -1,3 +1,19 @@
+// HELPER CONSTANTS
+const NOISE_WORDS = new Set([
+  "Block!",
+  "Critical",
+  "Critical Hit",
+  "Critical Hit Expert",
+  "Slow Influence",
+  "Backstab",
+  "Sidestab",
+  "Berserk",
+  "Influence",
+  "Dodge",
+  "Lock",
+  "Increased Damage",
+]);
+
 function processFightLog(line) {
   const hpUnits = "HP|PdV|PV";
   const armorUnits = "Armor|Armadura|Armure";
@@ -9,7 +25,9 @@ function processFightLog(line) {
 
   // Auto Reset Logic
   if (
+    typeof isAutoResetOn !== "undefined" &&
     isAutoResetOn &&
+    typeof awaitingNewFight !== "undefined" &&
     awaitingNewFight &&
     !content.toLowerCase().includes("over")
   ) {
@@ -127,11 +145,22 @@ function processFightLog(line) {
 
     let finalSpell = spellOverride || currentSpell;
 
+    // --- CUSTOM OVERRIDES ---
+
+    // 1. Everlasting Myotoxin (Sandyoptera Dungeon) - Force to Enemy
+    if (finalSpell && finalSpell.includes("Everlasting Myotoxin")) {
+      finalCaster = "Dungeon Mechanic";
+      finalSpell = "Everlasting Myotoxin";
+    }
+
+    // ------------------------
+
     // SIGNATURE REROUTING
     if (
       finalSpell &&
       finalSpell !== "Unknown Spell" &&
-      finalSpell !== "Passive / Indirect"
+      finalSpell !== "Passive / Indirect" &&
+      finalCaster !== "Dungeon Mechanic" // Don't reroute special mechanic
     ) {
       finalCaster = getSignatureCaster(finalSpell, finalCaster);
     }
@@ -166,7 +195,7 @@ function processFightLog(line) {
     }
 
     lastCombatTime = Date.now();
-    updateWatchdogUI();
+    if (typeof updateWatchdogUI === "function") updateWatchdogUI();
   }
 }
 
@@ -309,6 +338,7 @@ function mergeSummonData(summon, master) {
 function generateSpellMap() {
   if (typeof classSpells === "undefined") return;
   spellToClassMap = {};
+  allKnownSpells = new Set(); // Ensure this is initialized
 
   // Iterate over each class (e.g., "feca", "iop")
   for (const [className, langData] of Object.entries(classSpells)) {
@@ -319,6 +349,7 @@ function generateSpellMap() {
         if (Array.isArray(spells)) {
           spells.forEach((spell) => {
             spellToClassMap[spell] = className;
+            allKnownSpells.add(spell);
           });
         }
       }
@@ -327,9 +358,36 @@ function generateSpellMap() {
     else if (Array.isArray(langData)) {
       langData.forEach((spell) => {
         spellToClassMap[spell] = className;
+        allKnownSpells.add(spell);
       });
     }
   }
+
+  // --- MANUAL INJECTIONS ---
+
+  // SADIDA TOXINS & DOLL SPELLS
+  const sadidaSpells = [
+    "Harmless Toxin",
+    "Toxine inoffensive",
+    "Toxina inofensiva",
+    "Tetatoxin",
+    "Tétatoxine",
+    "Venomous",
+    "Venimeux",
+    "Liquid Ghoul",
+    // Fix for Task 2: Nettled states
+    "Sadida Nettled",
+    "Nettled",
+  ];
+
+  sadidaSpells.forEach((s) => {
+    spellToClassMap[s] = "sadida";
+    allKnownSpells.add(s);
+  });
+
+  // ECAFLIP
+  spellToClassMap["Blackjack"] = "ecaflip";
+  allKnownSpells.add("Blackjack");
 }
 
 function normalizeElement(el) {
@@ -557,4 +615,159 @@ function viewHistory(index) {
   currentViewIndex = index;
   updateHistoryButtons();
   renderMeter();
+}
+
+let permissionStrikeCount = 0; // Counter for transient errors
+
+const LOOT_KEYWORDS = [
+  "picked up",
+  "ramassé",
+  "obtenu",
+  "recogido",
+  "obtenido",
+  "apanhou",
+  "obteve",
+];
+
+async function parseFile() {
+  if (isReading || !fileHandle) return;
+  isReading = true;
+
+  try {
+    const file = await fileHandle.getFile();
+
+    // If we read successfully, reset the error counter immediately
+    permissionStrikeCount = 0;
+
+    if (file.size > fileOffset) {
+      const blob = file.slice(fileOffset, file.size);
+      const text = await blob.text();
+      const lines = text.split(/\r?\n/);
+
+      // Process lines
+      lines.forEach(processLine);
+
+      fileOffset = file.size;
+
+      // Update UI
+      if (typeof renderMeter === "function") renderMeter();
+
+      if (typeof trackerDirty !== "undefined" && trackerDirty) {
+        saveTrackerState();
+        renderTracker();
+        trackerDirty = false;
+      }
+    }
+  } catch (err) {
+    // Handle Permission/Read Errors
+    if (err.name === "NotReadableError" || err.message.includes("permission")) {
+      permissionStrikeCount++;
+
+      // STRIKE SYSTEM: Only stop if we failed 10 times in a row (~10 seconds)
+      if (permissionStrikeCount >= 10) {
+        console.error(
+          "Nexus Wakfu: Persistent permission loss. Stopping reader."
+        );
+
+        if (typeof parseIntervalId !== "undefined") {
+          clearInterval(parseIntervalId);
+          parseIntervalId = null;
+        }
+
+        // Show Reconnect UI
+        const setupPanel = document.getElementById("setup-panel");
+        const dropZone = document.getElementById("drop-zone");
+        const reconnectContainer = document.getElementById(
+          "reconnect-container"
+        );
+
+        if (setupPanel) setupPanel.style.display = "block";
+        if (dropZone) dropZone.style.display = "none";
+        if (reconnectContainer) reconnectContainer.style.display = "block";
+      }
+    } else {
+      console.error("File Read Error:", err);
+    }
+  } finally {
+    isReading = false;
+  }
+}
+
+function processLine(line) {
+  if (!line || line.trim() === "") return;
+
+  const lineLower = line.toLowerCase();
+
+  // EXPLICIT SYSTEM CHECK: Requires the [Bracket Tag] AND the message
+  const systemEndPattens = [
+    { tag: "[fight log]", msg: "fight is over" },
+    { tag: "[information (combat)]", msg: "le combat est terminé" },
+    { tag: "[información (combate)]", msg: "el combate ha terminado" },
+    { tag: "[registro de lutas]", msg: "a luta terminou" },
+  ];
+
+  // Logic for flagging that the battle ended (System only)
+  const battleJustFinished = systemEndPattens.some(
+    (p) => lineLower.includes(p.tag) && lineLower.includes(p.msg)
+  );
+
+  if (battleJustFinished) {
+    // Save immediately when fight ends
+    saveFightToHistory();
+
+    awaitingNewFight = true;
+    updateWatchdogUI();
+  }
+
+  // Handle Log deduplication
+  if (logLineCache.has(line)) return;
+  logLineCache.add(line);
+  if (logLineCache.size > MAX_CACHE_SIZE) {
+    const firstItem = logLineCache.values().next().value;
+    logLineCache.delete(firstItem);
+  }
+
+  try {
+    // OPTIMIZED: Use Global Constant instead of recreating array
+    const isLoot = LOOT_KEYWORDS.some((kw) => lineLower.includes(kw));
+
+    if (isLoot) {
+      processItemLog(line);
+    } else if (
+      lineLower.includes("[fight log]") ||
+      lineLower.includes("[information (combat)]") ||
+      lineLower.includes("[información (combate)]") ||
+      lineLower.includes("[registro de lutas]")
+    ) {
+      processFightLog(line);
+    } else if (line.match(/^\d{2}:\d{2}:\d{2}/)) {
+      processChatLog(line);
+    }
+  } catch (err) {
+    console.error("Parsing Error:", err);
+  }
+}
+
+async function startTracking(handle) {
+  // Save to DB for next time (AWAIT ensures it saves before continuing)
+  await saveFileHandleToDB(handle);
+
+  document.getElementById("setup-panel").style.display = "none";
+  activeFilename.textContent = handle.name;
+  liveIndicator.style.display = "inline-block";
+
+  performReset(true);
+  chatList.innerHTML =
+    '<div class="empty-state">Waiting for chat logs...</div>';
+
+  try {
+    const file = await handle.getFile();
+    fileOffset = file.size;
+  } catch (e) {
+    fileOffset = 0;
+  }
+
+  if (parseIntervalId) clearInterval(parseIntervalId);
+  parseIntervalId = setInterval(parseFile, 1000);
+  startWatchdog();
 }

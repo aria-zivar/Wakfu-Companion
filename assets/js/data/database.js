@@ -605,6 +605,7 @@ const classSpells = {
   osamodas: {
     en: [
       "Whip",
+      "The Art of Taming",
       "Plucking",
       "Transfer",
       "Repulsive Breath",
@@ -1571,6 +1572,7 @@ const classSpells = {
   iop: {
     en: [
       "Sword of Iop",
+      "Pounding",
       "Lost",
       "Thunderbolt",
       "Judgment",
@@ -1615,6 +1617,7 @@ const classSpells = {
     ],
     fr: [
       "Épée de Iop",
+      "Year",
       "Prdue",
       "Perdu",
       "Fulgur",
@@ -1705,6 +1708,8 @@ const classSpells = {
     ],
     es: [
       "Espada Yopuka",
+      "Zurzidela",
+      "Casca",
       "Fulgur",
       "Perdida",
       "Perdido",
